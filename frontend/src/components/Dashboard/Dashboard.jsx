@@ -20,7 +20,7 @@ const Dashboard = () => {
 
       try {
         setLoading(true);
-        const response = await fetch("/dashboard/", {
+        const response = await fetch("/api/dashboard/", {
           headers: {
             Authorization: `Bearer ${token}`,
           },

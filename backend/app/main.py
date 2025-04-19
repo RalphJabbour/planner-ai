@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import app.models
 from app.database import engine, Base
-from app.routers import auth, survey, dashboard  # Add dashboard import
+from app.routers import auth, survey, dashboard
 
 # Create tables if they don't exist yet
 Base.metadata.create_all(bind=engine)
@@ -22,9 +22,9 @@ app.add_middleware(
 )
 
 # Include routers
-app.include_router(auth.router)
-app.include_router(survey.router)
-app.include_router(dashboard.router)  # Add dashboard router
+app.include_router(auth.router, prefix="/api")
+app.include_router(survey.router, prefix="/api")
+app.include_router(dashboard.router, prefix="/api")
 
 @app.get("/")
 async def root():

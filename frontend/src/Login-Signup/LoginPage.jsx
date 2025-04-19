@@ -6,20 +6,39 @@ function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
+    setIsLoading(true);
 
-    // Add your login logic here
-    // For now just navigating to home
     try {
-      // Simulate API call
-      console.log("Logging in with:", { email, password });
+      // Make actual API call to login endpoint
+      const response = await fetch("/auth/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email, password }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.detail || "Login failed");
+      }
+
+      // Store the access token
+      localStorage.setItem("accessToken", data.access_token);
+
+      // Redirect to dashboard
       navigate("/dashboard");
     } catch (err) {
-      setError("Invalid credentials. Please try again.");
+      setError(err.message || "Invalid credentials. Please try again.");
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -57,6 +76,7 @@ function LoginPage() {
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="your@email.com"
                 required
+                disabled={isLoading}
               />
             </div>
 
@@ -69,6 +89,7 @@ function LoginPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
                 required
+                disabled={isLoading}
               />
             </div>
 
@@ -76,8 +97,12 @@ function LoginPage() {
               <Link to="/forgot-password">Forgot your password?</Link>
             </div>
 
-            <button type="submit" className="get-started-btn auth-button">
-              Log In
+            <button
+              type="submit"
+              className="get-started-btn auth-button"
+              disabled={isLoading}
+            >
+              {isLoading ? "Logging in..." : "Log In"}
             </button>
           </form>
 

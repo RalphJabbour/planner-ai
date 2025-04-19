@@ -1,0 +1,39 @@
+version: "3.8"
+
+services:
+  frontend:
+    build: ./planner-ai-frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+
+  backend:
+    # Replace with your actual backend image/build info
+    build: ./planner-ai-backend
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://postgres:1234@host.docker.internal:5432/EECE503N-planner
+#   backend:
+#     build: ./planner-ai-backend
+#     ports:
+#       - "8000:8000"
+#     environment:
+#       - DATABASE_URL=postgresql://postgres:1234@db:5432/EECE503N-planner
+#     depends_on:
+#       - db
+
+#   db:
+#     image: postgres:15
+#     environment:
+#       - POSTGRES_PASSWORD=1234
+#       - POSTGRES_USER=postgres
+#       - POSTGRES_DB=EECE503N-planner
+#     volumes:
+#       - postgres_data:/var/lib/postgresql/data
+#     ports:
+#       - "5432:5432"
+
+# volumes:
+#   postgres_data:

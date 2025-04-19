@@ -4,7 +4,7 @@ from app.database import get_db
 from app.models.student import Student
 from app.schemas.survey import SurveyAnswers
 
-router = APIRouter(prefix="/api", tags=["survey"])
+router = APIRouter(prefix="", tags=["survey"])
 
 @router.get("/survey-questions")
 async def get_survey_questions():

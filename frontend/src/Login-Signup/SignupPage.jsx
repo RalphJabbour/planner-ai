@@ -8,8 +8,11 @@ function SignupPage() {
     email: "",
     password: "",
     confirmPassword: "",
+    program: "", // Add program field
+    year: 1, // Add year field with default
   });
   const [error, setError] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
 
   const handleChange = (e) => {
@@ -23,25 +26,54 @@ function SignupPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
+    setIsLoading(true);
 
-    // // Basic validation
-    // if (formData.password !== formData.confirmPassword) {
-    //   setError("Passwords don't match");
-    //   return;
-    // }
+    // Basic validation
+    if (formData.password !== formData.confirmPassword) {
+      setError("Passwords don't match");
+      setIsLoading(false);
+      return;
+    }
 
-    // if (formData.password.length < 8) {
-    //   setError("Password must be at least 8 characters");
-    //   return;
-    // }
+    if (formData.password.length < 8) {
+      setError("Password must be at least 8 characters");
+      setIsLoading(false);
+      return;
+    }
 
     try {
-      // Simulate API call
-      console.log("Signing up with:", formData);
-      // Navigate to survey page instead of dashboard
+      // Make actual API call to signup endpoint
+      const response = await fetch("/auth/signup", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: formData.name,
+          email: formData.email,
+          password: formData.password,
+          program: formData.program,
+          year: parseInt(formData.year),
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.detail || "Signup failed");
+      }
+
+      // Store the access token if provided immediately
+      if (data.access_token) {
+        localStorage.setItem("accessToken", data.access_token);
+      }
+
+      // Navigate to survey page for preference collection
       navigate("/survey");
     } catch (err) {
-      setError("Failed to create account. Please try again.");
+      setError(err.message || "Failed to create account. Please try again.");
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -82,6 +114,7 @@ function SignupPage() {
                 onChange={handleChange}
                 placeholder="John Doe"
                 required
+                disabled={isLoading}
               />
             </div>
 
@@ -95,7 +128,41 @@ function SignupPage() {
                 onChange={handleChange}
                 placeholder="your@email.com"
                 required
+                disabled={isLoading}
               />
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="program">Program/Major</label>
+              <input
+                type="text"
+                id="program"
+                name="program"
+                value={formData.program}
+                onChange={handleChange}
+                placeholder="Computer Science"
+                required
+                disabled={isLoading}
+              />
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="year">Year of Study</label>
+              <select
+                id="year"
+                name="year"
+                value={formData.year}
+                onChange={handleChange}
+                required
+                disabled={isLoading}
+              >
+                <option value="1">1st Year</option>
+                <option value="2">2nd Year</option>
+                <option value="3">3rd Year</option>
+                <option value="4">4th Year</option>
+                <option value="5">5th Year</option>
+                <option value="6">Graduate</option>
+              </select>
             </div>
 
             <div className="form-group">
@@ -108,6 +175,7 @@ function SignupPage() {
                 onChange={handleChange}
                 placeholder="••••••••"
                 required
+                disabled={isLoading}
               />
             </div>
 
@@ -121,11 +189,16 @@ function SignupPage() {
                 onChange={handleChange}
                 placeholder="••••••••"
                 required
+                disabled={isLoading}
               />
             </div>
 
-            <button type="submit" className="get-started-btn auth-button">
-              Create Account
+            <button
+              type="submit"
+              className="get-started-btn auth-button"
+              disabled={isLoading}
+            >
+              {isLoading ? "Creating Account..." : "Create Account"}
             </button>
           </form>
 

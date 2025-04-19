@@ -7,4 +7,12 @@ requires-python = ">=3.12"
 dependencies = [
     "fastapi[standard]>=0.115.12",
     "uvicorn>=0.34.1",
+    "sqlalchemy>=2.0.0",
+    "psycopg2-binary>=2.9.9",
+    "python-jose>=3.3.0",
+    "passlib>=1.7.4",
+    "python-dotenv>=1.0.0",
+    "pydantic>=2.0.0",
+    "pydantic-extra-types>=2.0.0",
+    "email-validator>=2.0.0",
 ]

@@ -20,6 +20,8 @@ services:
     build: ./iep-quiz
     ports:
       - "9001:9001"
+    env_file:
+      - ./iep-quiz/.env
     depends_on:
       - db
 

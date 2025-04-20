@@ -5,9 +5,14 @@ from app.database import Base
 class Course(Base):
     __tablename__ = "courses"
     
-    course_id = Column(Integer, primary_key=True, index=True)
-    course_code = Column(String, unique=True, nullable=False)
+    course_id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    course_code = Column(String, nullable=False)
     course_name = Column(String, nullable=False)
+    course_CRN = Column(Integer, unique=True, nullable=False)
+    course_section = Column(Integer, nullable=False)
+    course_credits = Column(Integer, nullable=False)
+    actual_enrollment = Column(Integer, nullable=False)
+    max_enrollment = Column(Integer, nullable=False)
     instructor = Column(String)
     semester = Column(String, nullable=False)
     timetable = Column(JSON)

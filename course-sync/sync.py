@@ -280,3 +280,34 @@ def sync_courses(new_courses: List[Dict[str, Any]]) -> Dict[str, int]:
         if 'db' in locals() and db.is_active:
              db.rollback()
         return {"error": str(e)}
+
+import requests
+import os
+import logging
+
+logger = logging.getLogger(__name__)
+
+def trigger_default_data_initialization():
+    """
+    Call the backend API to initialize default user and course registrations.
+    """
+    try:
+        api_key = os.getenv("INIT_API_KEY", "course-sync-secret-key")
+        backend_url = os.getenv("BACKEND_URL", "http://backend:8000")
+        
+        response = requests.post(
+            f"{backend_url}/api/admin/initialize-default-data",
+            headers={"X-API-Key": api_key}
+        )
+        
+        if response.status_code == 200:
+            result = response.json()
+            if result.get("success"):
+                logger.info(f"Successfully initialized default data: {result}")
+            else:
+                logger.warning(f"Default data initialization reported error: {result}")
+        else:
+            logger.error(f"Failed to initialize default data. Status code: {response.status_code}")
+    
+    except Exception as e:
+        logger.error(f"Error triggering default data initialization: {str(e)}")

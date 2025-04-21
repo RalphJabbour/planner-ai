@@ -9,7 +9,7 @@ import logging
 import signal
 import sys
 from datetime import datetime
-from sync import sync_courses
+from sync import sync_courses, trigger_default_data_initialization
 from scraper import scrape_all_courses
 
 # Configure logging
@@ -45,6 +45,10 @@ def sync_job():
             print(courses_list[0])  # Debugging line to check the first course
             stats = sync_courses(courses_list)
             logger.info(f"Synchronization complete: {stats}")
+            
+            # Step 3: Trigger initialization of default data
+            logger.info("Triggering default data initialization...")
+            trigger_default_data_initialization()
         else:
             logger.warning("No course data retrieved, skipping sync")
             

@@ -1,0 +1,15 @@
+# prometheus.yml (updated for Docker)
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: 'fastapi'
+    scrape_interval: 5s
+    static_configs:
+      - targets: ['app:8000']  # Changed from host.docker.internal to the service name
+
+  - job_name: 'mlflow'
+    scrape_interval: 5s
+    static_configs:
+      - targets: ['mlflow:5000']

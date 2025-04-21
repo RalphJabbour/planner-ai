@@ -1,6 +1,6 @@
 FROM python:3.12-slim
 
-# 1. Install native deps for pdfplumber & cffi
+# 1. Install native deps for pdf2image (poppler)
 RUN apt-get update \
  && apt-get install -y poppler-utils build-essential libffi-dev \
  && rm -rf /var/lib/apt/lists/*
@@ -17,7 +17,7 @@ COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen --no-dev
 
 # 5. Copy service code & test PDF
-COPY main.py sample.pdf ./
+COPY main.py ./
 
 EXPOSE 9001
 

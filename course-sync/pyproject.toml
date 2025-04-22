@@ -1,0 +1,14 @@
+[project]
+name = "course-sync"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "sqlalchemy>=2.0.0",  # Specify version explicitly
+    "psycopg2-binary",
+    "pandas",
+    "requests",
+    "beautifulsoup4",
+    "python-dotenv"
+]

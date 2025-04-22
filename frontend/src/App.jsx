@@ -5,9 +5,9 @@ import {
   Route,
   Navigate,
 } from "react-router-dom";
-import LandingPage from "./components/LandingPage";
-import LoginPage from "./Login-Signup/LoginPage";
-import SignupPage from "./Login-Signup/SignupPage";
+import LandingPage from "./components/LandingPage/LandingPage";
+import LoginPage from "./components/Login-Signup/LoginPage";
+import SignupPage from "./components/Login-Signup/SignupPage";
 import SurveyPage from "./components/Survey/SurveyPage";
 import Dashboard from "./components/Dashboard/Dashboard";
 

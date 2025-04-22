@@ -1,0 +1,51 @@
+name: Build Check
+
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    # Step 1: Checkout the code
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    # Step 2: Install Docker Compose
+    - name: Install Docker Compose
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y docker-compose
+
+    # Step 3: Create backend/.env file
+    - name: Create backend/.env file
+      run: |
+        mkdir -p backend
+        echo "DATABASE_URL=${{ secrets.DATABASE_URL }}" >> backend/.env
+        echo "SECRET_KEY=${{ secrets.SECRET_KEY }}" >> backend/.env
+        echo "ALGORITHM=${{ secrets.ALGORITHM }}" >> backend/.env
+        echo "ACCESS_TOKEN_EXPIRE_MINUTES=${{ vars.ACCESS_TOKEN_EXPIRE_MINUTES }}" >> backend/.env
+        echo "INIT_API_KEY=${{ secrets.INIT_API_KEY }}" >> backend/.env
+
+    # Step 4: Create .env file in the project root
+    - name: Create .env file
+      run: |
+        echo "MODEL=${{ vars.MODEL }}" >> .env
+        echo "AZURE_API_KEY=${{ secrets.AZURE_API_KEY }}" >> .env
+        echo "AZURE_API_BASE=${{ vars.AZURE_API_BASE }}" >> .env
+        echo "AZURE_API_VERSION=${{ vars.AZURE_API_VERSION }}" >> .env
+        echo "DATABASE_URL=${{ secrets.DATABASE_URL }}" >> .env
+        echo "POSTGRES_DB=${{ vars.POSTGRES_DB }}" >> .env
+        echo "POSTGRES_USER=${{ vars.POSTGRES_USER }}" >> .env
+        echo "POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}" >> .env
+        echo "DB_HOST=${{ vars.DB_HOST }}" >> .env
+        echo "DB_PORT=${{ vars.DB_PORT }}" >> .env
+        echo "INIT_API_KEY=${{ secrets.INIT_API_KEY }}" >> .env
+        echo "BACKEND_URL=${{ vars.BACKEND_URL }}" >> .env
+
+    # Step 5: Build and test the application using docker-compose
+    - name: Run docker-compose build
+      run: docker-compose build

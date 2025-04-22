@@ -1,8 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException # type: ignore
 from sqlalchemy.orm import Session
+import logging
 from app.database import get_db
 from app.models.student import Student
 from app.schemas.survey import SurveyAnswers
+from app.models.course import Course
 
 router = APIRouter(prefix="", tags=["survey"])
 
@@ -52,3 +54,12 @@ async def submit_survey_answers(answers: SurveyAnswers, db: Session = Depends(ge
     db.commit()
     
     return {"message": "Survey answers submitted successfully."}
+
+@router.post("/courses")
+async def get_courses(semester: str, db: Session = Depends(get_db)):
+    """
+    Get all courses filtered by semester.
+    """
+    courses = db.query(Course).filter(Course.semester.like(f"%{semester}%")).all()
+    logging.info(f"Courses for semester {semester}: {courses}")
+    return courses

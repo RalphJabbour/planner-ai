@@ -1,9 +1,10 @@
+from app.routers import tasks
 from fastapi import FastAPI, Depends, HTTPException, Security
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import APIKeyHeader
 import app.models
 from app.database import engine, Base, get_db
-from app.routers import auth, survey, dashboard
+from app.routers import auth, survey, courses, ai_assistant, user, academic, tasks
 import logging
 import os
 from sqlalchemy.orm import Session
@@ -35,7 +36,12 @@ app.add_middleware(
 # Include routers
 app.include_router(auth.router, prefix="/api")
 app.include_router(survey.router, prefix="/api")
-app.include_router(dashboard.router, prefix="/api")
+app.include_router(courses.router, prefix="/api")
+app.include_router(tasks.router, prefix="/api")
+app.include_router(user.router, prefix="/api")
+# app.include_router(academic.router, prefix="/api")
+
+# app.include_router(ai_assistant.router, prefix="/api")
 
 # API Key security setup for the initialization endpoint
 API_KEY = os.getenv("INIT_API_KEY", "course-sync-secret-key")

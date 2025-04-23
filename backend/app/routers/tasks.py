@@ -77,6 +77,8 @@ async def create_fixed_obligation(
     db: Session = Depends(get_db)
 ):
     """Create a new fixed obligation for the current student"""
+
+    logging.error(f"Creating fixed obligation: {obligation} HIiIIiiiiiiiiiiII")
     # Validate priority
     if obligation.priority and (obligation.priority < 1 or obligation.priority > 5):
         raise HTTPException(status_code=400, detail="Priority must be between 1 and 5")
@@ -180,7 +182,8 @@ async def create_fixed_obligation(
                     )
                     
                     db.add(calendar_event)
-            
+        
+        logging.info(f"Created calendar events for fixed obligation ID: {new_obligation.obligation_id}")    
         db.commit()
     except Exception as e:
         logging.error(f"Failed to create calendar events: {str(e)}")
@@ -325,7 +328,7 @@ async def update_fixed_obligation(
                         )
                         
                         db.add(calendar_event)
-                    
+            logging.info(f"Updated calendar events for fixed obligation ID: {db_obligation.obligation_id}")
             db.commit()
         except Exception as e:
             logging.error(f"Failed to update calendar events: {str(e)}")
@@ -600,3 +603,44 @@ async def create_academic_task(
     
     # return task
     raise HTTPException(status_code=501, detail="Academic task creation not implemented yet")
+
+# ---- Calendar Events ----
+@router.get("/calendar-events")
+async def get_calendar_events(
+    current_student: Student = Depends(get_current_student),
+    start_date: Optional[datetime] = None,
+    end_date: Optional[datetime] = None,
+    db: Session = Depends(get_db)
+):
+    """Get all calendar events for the current student between start date and end date"""
+    if start_date is None:
+        start_date = datetime.now()
+    if end_date is None:
+        end_date = start_date + timedelta(days=7)
+    # Ensure start_date is before end_date
+    if start_date >= end_date:
+        raise HTTPException(status_code=400, detail="Start date must be before end date")
+    # Fetch calendar events for the current student
+    events = db.query(CalendarEvent).filter(
+        CalendarEvent.student_id == current_student.student_id,
+        CalendarEvent.start_time >= start_date,
+        CalendarEvent.end_time <= end_date
+    ).order_by(CalendarEvent.start_time).all()
+    return events
+
+@router.get("/calendar-events/{event_id}")
+async def get_calendar_event(
+    event_id: int,
+    current_student: Student = Depends(get_current_student),
+    db: Session = Depends(get_db)
+):
+    """Get a specific calendar event by ID"""
+    db_event = db.query(CalendarEvent).filter(
+        CalendarEvent.event_id == event_id,
+        CalendarEvent.student_id == current_student.student_id
+    ).first()
+    
+    if not db_event:
+        raise HTTPException(status_code=404, detail="Calendar event not found or not owned by this student")
+    
+    return db_event

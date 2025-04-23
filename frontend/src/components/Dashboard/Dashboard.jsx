@@ -298,6 +298,12 @@ const Dashboard = () => {
           </div>
           <div className="header-actions">
             <button 
+              className="view-schedule-btn"
+              onClick={() => navigate("/schedule")}
+            >
+              View Schedule
+            </button>
+            <button 
               className="browse-courses-btn"
               onClick={() => setShowCourseBrowser(!showCourseBrowser)}
             >

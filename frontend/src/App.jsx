@@ -12,7 +12,8 @@ import SurveyPage from "./components/Survey/SurveyPage";
 import Dashboard from "./components/Dashboard/Dashboard";
 import FixedObligationForm from "./components/Obligations/FixedObligationForm";
 import FlexibleObligationForm from "./components/Obligations/FlexibleObligationForm";
-import Schedule from "./components/Schedule/Schedule";
+// import Schedule from "./components/Schedule/Schedule";
+import WeeklyCalendar from "./components/Schedule/WeeklyCalendar/WeeklyCalendar";
 
 // Simple protected route implementation
 const ProtectedRoute = ({ children }) => {
@@ -33,7 +34,7 @@ function App() {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignupPage />} />
         <Route path="/survey" element={<SurveyPage />} />
-        {/* <Route path="/schedule" element={<Schedule />} /> */}
+        <Route path="/schedule" element={<WeeklyCalendar />} />
         <Route
           path="/dashboard"
           element={

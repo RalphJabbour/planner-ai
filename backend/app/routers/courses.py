@@ -7,11 +7,60 @@ from app.database import get_db
 from app.models.student import Student
 from app.models.course import Course, StudentCourse
 from app.auth.token import get_current_student
+from app.routers.tasks import create_fixed_obligation, FixedObligationCreate
+import datetime
 
 router = APIRouter(prefix="/courses", tags=["courses"])
 
 class CourseRegistration(BaseModel):
     course_id: int
+
+def get_days_array(days):
+    result = []
+    for day in days:
+        if day == "M":
+            result.append("Monday")
+        elif day == "T":
+            result.append("Tuesday")
+        elif day == "W":
+            result.append("Wednesday")
+        elif day == "R":
+            result.append("Thursday")
+        elif day == "F":
+            result.append("Friday")
+        elif day == "S":
+            result.append("Saturday")
+        elif day == "U":
+            result.append("Sunday")
+    return result
+
+def get_time(time_str):
+    if time_str:
+        time_str = time_str.replace(":", "")
+        if len(time_str) == 4:
+            return datetime.time(int(time_str[:2]), int(time_str[2:]))
+        elif len(time_str) == 3:
+            return datetime.time(int(time_str[:1]), int(time_str[1:]))
+        elif len(time_str) == 2:
+            return datetime.time(int(time_str[:1]), 0)
+    return None
+
+def get_start_end_date(semester):
+    year = int(semester.split(" ")[-1].split("-")[0]) + 1
+    if semester.startswith("Fall"):
+        year-=1
+        start_date = datetime.date(int(year), 8, 1)
+        end_date = datetime.date(int(year), 12, 31)
+    elif semester.startswith("Spring"):
+        start_date = datetime.date(int(year), 1, 1)
+        end_date = datetime.date(int(year), 5, 31)
+    elif semester.startswith("Summer"):
+        start_date = datetime.date(int(year), 6, 1)
+        end_date = datetime.date(int(year), 8, 31)
+    else:
+        raise HTTPException(status_code=400, detail="Invalid semester format")
+    return start_date, end_date
+        
 
 @router.get("")
 async def get_courses(
@@ -62,6 +111,36 @@ async def register_course(
     
     db.add(new_registration)
     db.commit()
+    logging.error("HIiiiiiiiiIiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii")
+    # timetable = {"times": [{"days": "M", "start_time": "0900", "end_time": "1600", "building": ".", "room": "."}, {"days": "WF", "start_time": "0900", "end_time": "1200", "building": ".", "room": "."}]}
+    try:
+        recurrences = course.timetable.get("times", [])
+        for recurrence in recurrences:
+            start_time = get_time(recurrence["start_time"])
+            end_time = get_time(recurrence["end_time"])
+            start_date, end_date = get_start_end_date(course.semester)
+            if not start_time or not end_time:
+                return {"message": "Invalid time format"}
+            
+            # Fix: Properly await the coroutine
+            await create_fixed_obligation(
+                FixedObligationCreate(
+                    name=course.course_name,
+                    description=course.course_code + " Lecture", # Added space after course code
+                    start_time=start_time,
+                    end_time=end_time,
+                    days_of_week=get_days_array(recurrence.get("days", [])),
+                    start_date=start_date,
+                    end_date=end_date,
+                    recurrence="weekly",
+                    priority=3,
+                ),
+                current_student=current_student,
+                db=db,
+            )
+    except Exception as e:
+        logging.error(f"Error creating fixed obligation: {e}")
+        raise HTTPException(status_code=500, detail="Error creating fixed obligation")
     
     return {"message": "Course registered successfully"}
 

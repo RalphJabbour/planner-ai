@@ -4,6 +4,8 @@ import os, io, httpx, json, base64, mimetypes, time, random
 from pdf2image import convert_from_bytes
 from PIL import Image
 import asyncio
+from fastapi.middleware.cors import CORSMiddleware
+
 
 # Azure OpenAI settings from env
 AZURE_OPENAI_ENDPOINT = os.getenv("AZURE_OPENAI_ENDPOINT")
@@ -12,6 +14,15 @@ AZURE_OPENAI_DEPLOYMENT = os.getenv("AZURE_OPENAI_DEPLOYMENT")
 AZURE_OPENAI_API_VERSION = os.getenv("AZURE_OPENAI_API_VERSION")
 
 app = FastAPI(title="PDF→Images Concepts Extractor")
+
+   # Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # In production, replace with your frontend domain
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 class Idea(BaseModel):
     concept: str

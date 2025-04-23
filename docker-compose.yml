@@ -24,6 +24,11 @@ services:
       - ./iep-quiz/.env
     depends_on:
       - db
+    environment:
+      - PYTHONHTTPSVERIFY=0  # Temporarily disable certificate verification
+      - UV_TIMEOUT=120       # Increase timeouts
+      - UV_RETRIES=5         # Increase retry attempts
+      - PYTHONUNBUFFERED=1
 
   db:
     image: postgres:15

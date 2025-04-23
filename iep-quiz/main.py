@@ -105,51 +105,66 @@ def parse_concepts(raw: str) -> list[Idea]:
     
     return ideas
 
-async def process_sample_pages(data_urls: list[str], max_pages: int = 6) -> list[Idea]:
+async def process_sample_pages(data_urls: list[str], sample_rate: float = 0.2, min_pages: int = 3, max_pages: int = 15) -> list[Idea]:
     """Process only a sample of pages from the document to avoid rate limits"""
-    if len(data_urls) > max_pages:
-        step = max(1, len(data_urls) // max_pages)
-        sampled_urls = [data_urls[i] for i in range(0, len(data_urls), step)][:max_pages]
+    async def process_page(url: str, page_idx: int, total_pages: int) -> list[Idea]:
+        """Process a single page and extract ideas"""
+        print(f"Processing page {page_idx+1}/{total_pages}")
+            
+        segments = [
+            {
+                "type": "text",
+                "text": "Extract 3 key concepts or ideas from this document page. Respond using:\nCONCEPT: [concept]\n"
+            },
+            {
+                "type": "image_url",
+                "image_url": {"url": url, "detail": "low"}
+            }
+        ]
+            
+        payload = {
+            "messages": [
+                {"role": "system", "content": "You are an expert at extracting key concepts from document images."},
+                {"role": "user", "content": segments}
+            ],
+            "temperature": 0.5,
+            "max_tokens": 300
+        }
+
+        raw_response = await call_openai_with_retry(payload)
+        print(f"Page {page_idx+1} response: {raw_response[:50]}...")  # Log first 50 chars
+        page_ideas = parse_concepts(raw_response)
+        print(f"Extracted {len(page_ideas)} ideas from page {page_idx+1}")
+        return page_ideas
+
+    # Calculate how many pages to sample
+    total_pages = len(data_urls)
+    desired_pages = max(min_pages, min(max_pages, int(total_pages * sample_rate)))
+
+    # Select pages to process
+    if len(data_urls) > desired_pages:
+        step = max(1, len(data_urls) // desired_pages)
+        sampled_urls = [data_urls[i] for i in range(0, len(data_urls), step)][:desired_pages]
         print(f"Sampling {len(sampled_urls)} pages out of {len(data_urls)} total pages")
     else:
         sampled_urls = data_urls
     
-    all_ideas = []
+    # Create tasks for processing each page
+    tasks = []
     for i, url in enumerate(sampled_urls):
-        try:
-            print(f"Processing page {i+1}/{len(sampled_urls)}")
-            
-            segments = [
-                {
-                    "type": "text",
-                    "text": "Extract 3 key concepts or ideas from this document page. Respond using:\nCONCEPT: [concept]\n"
-                },
-                {
-                    "type": "image_url",
-                    "image_url": {"url": url, "detail": "low"}
-                }
-            ]
-            
-            payload = {
-                "messages": [
-                    {"role": "system", "content": "You are an expert at extracting key concepts from document images."},
-                    {"role": "user", "content": segments}
-                ],
-                "temperature": 0.5,
-                "max_tokens": 300
-            }
-            
-            if i > 0:
-                await asyncio.sleep(2)
-                
-            raw = await call_openai_with_retry(payload)
-            page_ideas = parse_concepts(raw)
-            all_ideas.extend(page_ideas)
-            
-        except Exception as e:
-            print(f"Error processing page {i+1}: {str(e)}")
+        tasks.append(process_page(url, i, len(sampled_urls)))
     
-    return all_ideas
+    # Process all pages concurrently
+    try:
+        results = await asyncio.gather(*tasks)
+        # Flatten the list of page ideas
+        all_ideas = [idea for page_ideas in results for idea in page_ideas]
+        print(f"Total extracted ideas: {len(all_ideas)}")
+        return all_ideas
+    except Exception as e:
+        print(f"Error processing pages: {str(e)}")
+        return []
+
 
 async def synthesize_concepts(ideas: list[Idea]) -> list[Idea]:
     """Synthesize collected concepts into main document concepts"""

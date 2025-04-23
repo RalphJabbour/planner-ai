@@ -4,23 +4,35 @@ from app.database import Base
 import datetime
 
 class AcademicTask(Base):
+    #for each chapter of a course there should be a task for it
+    #for each assignment and for each exam there should be a task
     __tablename__ = "academic_tasks"
     
     task_id = Column(Integer, primary_key=True, index=True)
     course_id = Column(Integer, ForeignKey("courses.course_id", ondelete="CASCADE"))
+
     task_type = Column(String(50))
     title = Column(String, nullable=False)
     description = Column(Text)
     deadline = Column(TIMESTAMP, nullable=False)
-    estimated_hours = Column(NUMERIC)
+
     status = Column(String(50), default="pending")
     created_at = Column(TIMESTAMP, server_default=text("CURRENT_TIMESTAMP"))
     
     __table_args__ = (
-        CheckConstraint(task_type.in_(['assignment', 'project', 'exam'])),
+        CheckConstraint(task_type.in_(['revision', 'assignment', 'project', 'exam'])),
+        CheckConstraint(status.in_(['pending', 'in_progress', 'completed', 'overdue'])),
     )
+    #eventually when the application gets bigger, we will have to add subtasks (which may be created by LLMs + RAG):
+    #for example, if the task is exam, the subtasks may be:
+    #1. revision
+    #2. practice exam
+    #3. review exam
+    #4. exam day
+    #5. exam feedback
 
 class StudyMaterial(Base):
+    # will be used to create academic tasks
     __tablename__ = "study_materials"
     
     material_id = Column(Integer, primary_key=True, index=True)
@@ -35,22 +47,4 @@ class StudyMaterial(Base):
     
     __table_args__ = (
         CheckConstraint(material_type.in_(['pdf', 'powerpoint', 'testbank', 'book_exercise'])),
-    )
-
-class CourseProgress(Base):
-    __tablename__ = "course_progress"
-    
-    progress_id = Column(Integer, primary_key=True, index=True)
-    student_id = Column(Integer, ForeignKey("students.student_id", ondelete="CASCADE"))
-    course_id = Column(Integer, ForeignKey("courses.course_id", ondelete="CASCADE"))
-    task_id = Column(Integer, ForeignKey("academic_tasks.task_id", ondelete="CASCADE"))
-    task_type = Column(String(50))
-    chapter = Column(String(100))
-    percentage_completed = Column(NUMERIC)
-    hours_spent = Column(NUMERIC)
-    proficiency_score = Column(NUMERIC)
-    last_updated = Column(TIMESTAMP, default=datetime.datetime.utcnow)
-    
-    __table_args__ = (
-        CheckConstraint(task_type.in_(['chapter_study', 'project', 'problem_solving'])),
     )

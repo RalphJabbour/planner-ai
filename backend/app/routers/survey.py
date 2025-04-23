@@ -54,12 +54,3 @@ async def submit_survey_answers(answers: SurveyAnswers, db: Session = Depends(ge
     db.commit()
     
     return {"message": "Survey answers submitted successfully."}
-
-@router.post("/courses")
-async def get_courses(semester: str, db: Session = Depends(get_db)):
-    """
-    Get all courses filtered by semester.
-    """
-    courses = db.query(Course).filter(Course.semester.like(f"%{semester}%")).all()
-    logging.info(f"Courses for semester {semester}: {courses}")
-    return courses

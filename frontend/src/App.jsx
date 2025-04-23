@@ -10,6 +10,10 @@ import LoginPage from "./components/Login-Signup/LoginPage";
 import SignupPage from "./components/Login-Signup/SignupPage";
 import SurveyPage from "./components/Survey/SurveyPage";
 import Dashboard from "./components/Dashboard/Dashboard";
+import FixedObligationForm from "./components/Obligations/FixedObligationForm";
+import FlexibleObligationForm from "./components/Obligations/FlexibleObligationForm";
+// import Schedule from "./components/Schedule/Schedule";
+import WeeklyCalendar from "./components/Schedule/WeeklyCalendar/WeeklyCalendar";
 
 // Simple protected route implementation
 const ProtectedRoute = ({ children }) => {
@@ -30,6 +34,7 @@ function App() {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignupPage />} />
         <Route path="/survey" element={<SurveyPage />} />
+        <Route path="/schedule" element={<WeeklyCalendar />} />
         <Route
           path="/dashboard"
           element={
@@ -39,8 +44,36 @@ function App() {
           }
         />
         <Route
-          path="/schedule"
-          element={<div>Schedule Page (Coming Soon)</div>}
+          path="/obligations/fixed/add"
+          element={
+            <ProtectedRoute>
+              <FixedObligationForm />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/obligations/fixed/edit/:id"
+          element={
+            <ProtectedRoute>
+              <FixedObligationForm />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/obligations/flexible/add"
+          element={
+            <ProtectedRoute>
+              <FlexibleObligationForm />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/obligations/flexible/edit/:id"
+          element={
+            <ProtectedRoute>
+              <FlexibleObligationForm />
+            </ProtectedRoute>
+          }
         />
         {/* Redirect any unknown routes to dashboard if logged in, otherwise to landing page */}
         <Route

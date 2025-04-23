@@ -142,7 +142,9 @@ def scrape_all_courses() -> pd.DataFrame:
         pandas.DataFrame: DataFrame containing all course information
     """
     all_courses = []
-    for letter in string.ascii_uppercase:
+    demo_letters = ['A', 'B', 'M', 'E']
+    # for letter in string.ascii_uppercase:
+    for letter in demo_letters:
         try:
             soup = fetch_page(letter)
             courses = parse_courses(soup)

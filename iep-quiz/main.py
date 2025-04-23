@@ -173,29 +173,37 @@ async def synthesize_concepts(ideas: list[Idea]) -> list[Idea]:
     
     # Create a list of concepts
     concepts_text = "\n".join(f"- {idea.concept}" for idea in ideas)
-    
+    print(f"Sending {len(ideas)} ideas to be synthesized")
+
     payload = {
         "messages": [
             {
                 "role": "system",
-                "content": "You are an expert at synthesizing concepts into main themes."
+                "content": "You are an expert at synthesizing concepts into main themes. Always format your response exactly as requested with the prefix 'CONCEPT:' before each theme."
             },
             {
                 "role": "user",
                 "content": (
                     "Based on these concepts extracted from a document:\n\n"
                     f"{concepts_text}\n\n"
-                    "Identify 3-5 main concepts or themes. List ONLY the concept names.\n"
-                    "Format:\nCONCEPT: [main theme]\nCONCEPT: [main theme]\nCONCEPT: [main theme]"
+                    "Identify 3-5 main concepts or themes. Your response must follow this exact format:\n\n"
+                    "CONCEPT: [main theme 1]\n"
+                    "CONCEPT: [main theme 2]\n"
+                    "CONCEPT: [main theme 3]\n\n"
+                    "Each line must start with the exact prefix 'CONCEPT:' followed by a space and the theme."
+                    "Do not include descriptions, explanations, or any other text."
                 )
             }
         ],
-        "temperature": 0.7,
+        "temperature": 0.5,
         "max_tokens": 200
     }
     
     raw = await call_openai_with_retry(payload)
-    return parse_concepts(raw)
+    print(f"Synthesis response: {raw}")
+    parsed_concepts = parse_concepts(raw)
+    print(f"Parsed concepts: {parsed_concepts}")
+    return parsed_concepts
 
 @app.post("/extract-ideas", response_model=IdeasResponse)
 async def extract_pdf_as_images(document_id: str = None, file: UploadFile = File(...)):

@@ -1,6 +1,7 @@
 /* src/components/Dashboard/Dashboard.css */
 .dashboard-container {
   max-width: 1200px;
+  max-height: 90vh;
   margin: 0 auto;
   padding: 2rem 1rem;
   position: relative;
@@ -639,4 +640,164 @@
     height: auto;
     max-height: 80vh;
   }
+}
+
+/* Add these styles to your existing Dashboard.css file */
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid #eee;
+  margin-bottom: 1rem;
+}
+
+.section-header h2 {
+  margin: 0;
+  padding: 0;
+  border: none;
+}
+
+.add-btn {
+  padding: 0.25rem 0.75rem;
+  background-color: #0066cc;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.875rem;
+  transition: background-color 0.2s;
+}
+
+.add-btn:hover {
+  background-color: #0056b3;
+}
+
+.obligations-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.obligation-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem;
+  background: #f9f9f9;
+  border-radius: 6px;
+}
+
+.obligation-info {
+  flex-grow: 1;
+}
+
+.obligation-title {
+  font-weight: 500;
+  margin-bottom: 0.25rem;
+}
+
+.obligation-details {
+  font-size: 0.75rem;
+  color: #666;
+  display: flex;
+  gap: 1rem;
+}
+
+.obligation-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.edit-btn {
+  padding: 0.25rem 0.5rem;
+  background-color: #f0f0f0;
+  border: none;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.edit-btn:hover {
+  background-color: #e0e0e0;
+}
+
+.register-course-btn, 
+.unregister-course-btn {
+  padding: 6px 12px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+  transition: all 0.2s;
+}
+
+.register-course-btn {
+  background-color: #4caf50;
+  color: white;
+}
+
+.register-course-btn:hover:not(:disabled) {
+  background-color: #43a047;
+}
+
+.unregister-course-btn {
+  background-color: #f44336;
+  color: white;
+}
+
+.unregister-course-btn:hover:not(:disabled) {
+  background-color: #e53935;
+}
+
+.register-course-btn:disabled,
+.unregister-course-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.unregister-btn {
+  margin-top: 0.75rem;
+  padding: 0.375rem 0.75rem;
+  background-color: #f44336;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.75rem;
+  transition: background-color 0.2s;
+}
+
+.unregister-btn:hover:not(:disabled) {
+  background-color: #e53935;
+}
+
+.unregister-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.view-schedule-btn {
+  background-color: #3b82f6;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  font-weight: 500;
+  cursor: pointer;
+  margin-right: 12px;
+  transition: background-color 0.2s;
+  display: flex;
+  align-items: center;
+}
+
+.view-schedule-btn:hover {
+  background-color: #2563eb;
+}
+
+.view-schedule-btn::before {
+  content: "\1F4C5"; /* Calendar emoji */
+  margin-right: 6px;
+  font-size: 16px;
 }

@@ -1,3 +1,4 @@
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List, Optional, Dict, Any
@@ -11,6 +12,7 @@ from datetime import datetime, timedelta
 from app.models.academic import AcademicTask
 from app.models.course import Course, StudentCourse
 import logging
+from app.or_tools.service import update_schedule  # Import the update_schedule function
 
 router = APIRouter(prefix="/tasks", tags=["tasks"])
 
@@ -189,7 +191,18 @@ async def create_fixed_obligation(
         logging.error(f"Failed to create calendar events: {str(e)}")
         # The obligation was already created successfully, so we don't want to fail the whole request
     
-    return new_obligation
+     # ── OR-Tools re-optimisation ───────────────────────────────────────────
+    try:
+        updated_events = update_schedule({"student_id": current_student.student_id}, db)
+    except Exception as e:
+        logging.error("Error updating schedule: %s", e)
+        raise HTTPException(500, "Error updating schedule")
+
+    return {
+        "message": "Fixed obligation created successfully",
+        "fixed_obligation_id": new_obligation.obligation_id,
+        "updated_events": updated_events,
+    }
 
 @router.get("/fixed/{obligation_id}")
 async def get_fixed_obligation(
@@ -423,13 +436,15 @@ async def get_flexible_obligation(
 async def create_flexible_obligation(
     obligation: FlexibleObligationCreate,
     current_student: Student = Depends(get_current_student),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
-    """Create a new flexible obligation for the current student"""
-    # Validate priority if provided
-    if obligation.priority and (obligation.priority < 1 or obligation.priority > 5):
-        raise HTTPException(status_code=400, detail="Priority must be between 1 and 5")
-    
+    """Create a new flexible obligation for the current student."""
+
+    # ── basic validation ────────────────────────────────────────────────
+    if obligation.priority and not (1 <= obligation.priority <= 5):
+        raise HTTPException(400, "Priority must be between 1 and 5")
+
+    # ── insert FlexibleObligation row ───────────────────────────────────
     new_obligation = FlexibleObligation(
         student_id=current_student.student_id,
         description=obligation.description,
@@ -437,14 +452,35 @@ async def create_flexible_obligation(
         start_date=obligation.start_date,
         end_date=obligation.end_date,
         priority=obligation.priority,
-        constraints=obligation.constraints
+        constraints=obligation.constraints,
     )
-    
     db.add(new_obligation)
     db.commit()
     db.refresh(new_obligation)
-    
-    return new_obligation
+
+    logging.info(
+        "Created flexible obligation %s for student %s",
+        new_obligation.obligation_id,
+        current_student.student_id,
+    )
+
+    # ── OR-Tools re-optimisation (same pattern as fixed obligation) ────
+    try:
+        updated_events = update_schedule(
+            {"student_id": current_student.student_id}, db
+        )
+    except Exception as e:
+        logging.error("Error updating schedule: %s", e)
+        raise HTTPException(500, "Error updating schedule")
+
+    print("flexible obligation created successfully zzzzzzzzzzzzzzzzzzzzzzzzzzzzzz ")
+    # ── response ────────────────────────────────────────────────────────
+    return {
+        "message": "Flexible obligation created successfully",
+        "flexible_obligation_id": new_obligation.obligation_id,
+        "updated_events": updated_events,
+    }
+
 
 @router.put("/flexible/{obligation_id}")
 async def update_flexible_obligation(

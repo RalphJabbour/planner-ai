@@ -9,6 +9,7 @@ from app.models.course import Course, StudentCourse
 from app.auth.token import get_current_student
 from app.routers.tasks import create_fixed_obligation, FixedObligationCreate
 import datetime
+from app.or_tools.service import update_schedule  # Import the update_schedule function
 
 router = APIRouter(prefix="/courses", tags=["courses"])
 
@@ -114,6 +115,7 @@ async def register_course(
     logging.error("HIiiiiiiiiIiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii")
     # timetable = {"times": [{"days": "M", "start_time": "0900", "end_time": "1600", "building": ".", "room": "."}, {"days": "WF", "start_time": "0900", "end_time": "1200", "building": ".", "room": "."}]}
     try:
+        print("regostering course as a fixed obligation yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy")
         recurrences = course.timetable.get("times", [])
         for recurrence in recurrences:
             start_time = get_time(recurrence["start_time"])
@@ -138,11 +140,13 @@ async def register_course(
                 current_student=current_student,
                 db=db,
             )
+            
+        # Call update_schedule to optimize the calendar
+        updated_events = update_schedule({"student_id": current_student.student_id}, db)
+        return {"message": "Course registered successfully", "updated_events": updated_events}
     except Exception as e:
         logging.error(f"Error creating fixed obligation: {e}")
         raise HTTPException(status_code=500, detail="Error creating fixed obligation")
-    
-    return {"message": "Course registered successfully"}
 
 @router.get("/registered")
 async def get_registered_courses(

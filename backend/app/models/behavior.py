@@ -77,9 +77,3 @@ class ProductivityProfile(Base):
     retention_rates = Column(JSON, nullable=True) # Map of slots to retention rates
 
     last_updated = Column(TIMESTAMP, default=datetime.datetime.now(datetime.UTC))
-
-
-
-
-
-

@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
 from sqlalchemy.orm import Session
-from app.models.session import SessionEvent, ContextSignal 
+from app.models.reflected_models import SessionEvent, ContextSignal 
 from typing import Dict, List, Tuple 
 import datetime 
 

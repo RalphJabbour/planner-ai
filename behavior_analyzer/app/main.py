@@ -9,9 +9,6 @@ from app.routers import behavior
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# # Create tables if they don't exist yet
-# Base.metadata.create_all(bind=engine)
-
 app = FastAPI(title="Behavior Analyzer API")
 
 # CORS middleware

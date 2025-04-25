@@ -8,7 +8,7 @@ from app.schemas.behavior import (
     SessionEventCreate, SessionEventUpdate, ContextSignalCreate,
     ProductivityProfileResponse, RecommendationRequest, TimeSlot
 )
-from app.models.session import SessionEvent, ContextSignal, ProductivityProfile
+from app.models.reflected_models import SessionEvent, ContextSignal, ProductivityProfile
 from app.ml.models import BehaviorModel
 
 router = APIRouter(prefix="/behavior", tags=["behavior"])

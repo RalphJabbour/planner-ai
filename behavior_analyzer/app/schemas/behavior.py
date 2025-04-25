@@ -35,6 +35,7 @@ class PeakWindow(BaseModel):
     end_time: time 
     efficiency: float 
 
+# Update this class:
 class ProductivityProfileResponse(BaseModel):
     student_id: int 
     slot_weights: Dict[str, float]
@@ -50,7 +51,7 @@ class ProductivityProfileResponse(BaseModel):
     last_updated: datetime
 
     class Config:
-        orm_mode = True 
+        from_attributes = True 
 
 class RecommendationRequest(BaseModel):
     student_id: int 

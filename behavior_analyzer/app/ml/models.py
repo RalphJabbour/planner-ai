@@ -4,7 +4,7 @@ from typing import Dict, List, Tuple, Optional
 from sklearn.linear_model import LinearRegression 
 from sqlalchemy.orm import Session 
 from app.ml.feature_extraction import FeatureExtractor 
-from app.models.session import ProductivityProfile, SessionEvent 
+from app.models.reflected_models import ProductivityProfile, SessionEvent
 
 class BehaviorModel:
     """

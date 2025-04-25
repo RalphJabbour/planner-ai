@@ -11,6 +11,9 @@ engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
+# Import base models from backend
+# Don't create tables here - backend is responsible for schema
+
 # Dependency to get DB session
 def get_db():
     db = SessionLocal()

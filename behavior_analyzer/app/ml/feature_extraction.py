@@ -26,7 +26,7 @@ class FeatureExtractor:
         filtered_sessions = [
             session for session in self.sessions
             if session.student_id == student_id
-            and session.start_time >= cutoff_date
+            and (session.start_time.replace(tzinfo=datetime.timezone.utc) if session.start_time.tzinfo is None else session.start_time) >= cutoff_date
             and session.completed == True
         ]
 
@@ -149,13 +149,15 @@ class FeatureExtractor:
             })
 
             # Find the sweet spot - highest average rating by duration
-            duration_rating = df.groupby(pd.cut(df["duration"], bins=range(0, 241, 15))).mean()
-            if not duration_rating.empty:
+            duration_rating = df.groupby(pd.cut(df["duration"], bins=range(0, 241, 15)), observed=True).mean()
+            if not duration_rating.empty and not duration_rating["rating"].isna().all():
                 best_idx = duration_rating["rating"].idxmax()
-                if best_idx:
-                    # Extract the upper bound of the interval
-                    max_mins = best_idx.right
-                    parameters["max_continuous_minutes"] = int(max_mins)
+                if best_idx is not None and not pd.isna(best_idx):
+                    if hasattr(best_idx, 'right'):
+                        max_mins = best_idx.right
+                        parameters["max_continuous_minutes"] = int(max_mins)
+                    elif isinstance(best_idx, (int, float)):
+                        parameters["max_continuous_minutes"] = int(min(best_idx, 90))
 
 
                     # Ideal break is proportional to session length (1:5 ratio)

@@ -4,26 +4,45 @@ from typing import Dict, List, Tuple, Optional
 from sklearn.linear_model import LinearRegression 
 from app.ml.feature_extraction import FeatureExtractor 
 from app.models.reflected_models import ProductivityProfile, SessionEvent
+from app.schemas.behavior import DataPackageRequest, ProductivityProfileData
+import datetime
+from sqlalchemy.orm import Session
 
 class BehaviorModel:
     """
     Manages modeling and prediction components of the Behavior Analyzer
     """
 
-    def __init__(self, data_package: DataPackageRequest):
-        self.sessions = data_package.sessions
-        self.context_signals = data_package.context_signals
-        self.profile = data_package.profile
-        self.feature_extractor = FeatureExtractor(self.sessions, self.context_signals)
+    def __init__(self, db: Session):
+        """Initialize with either a database session or a data package"""
+        if hasattr(db, 'sessions'):
+            # It's a DataPackageRequest
+            self.sessions = db.sessions
+            self.context_signals = db.context_signals
+            self.profile = db.profile
+            self.feature_extractor = FeatureExtractor(self.sessions, self.context_signals)
+        else:
+            # It's a database session
+            self.db = db
+            self.profile = None  # Initialize profile to None
+            self.feature_extractor = FeatureExtractor(db)
     
     def get_or_create_profile(self, student_id: int) -> ProductivityProfileData:
         """
         Gets the existing profile or creates a new one with default values
         """
 
-        # Check if profile exists
-        if self.profile and self.profile.student_id == student_id:
+        # Check if profile exists in instance or fetch from database
+        if hasattr(self, 'profile') and self.profile and self.profile.student_id == student_id:
             return self.profile
+        
+        # If we have a database session, try to fetch the profile
+        if hasattr(self, 'db'):
+            db_profile = self.db.query(ProductivityProfile).filter(ProductivityProfile.student_id == student_id).first()
+            if db_profile:
+                # Convert to schema model
+                self.profile = ProductivityProfileData.model_validate(db_profile)
+                return self.profile
         
         # Create default profile
         default_days = {
@@ -47,6 +66,7 @@ class BehaviorModel:
             last_updated=datetime.datetime.now(datetime.timezone.utc)
         )
         
+        self.profile = new_profile
         return new_profile
     
     def update_profile(self, student_id: int, force_update: bool = False) -> ProductivityProfileData:
@@ -80,6 +100,7 @@ class BehaviorModel:
             last_updated=datetime.datetime.now(datetime.timezone.utc)
         )
         
+        self.profile = updated_profile
         return updated_profile
 
     def predict_session_success(self, student_id: int, start_time: pd.Timestamp, duration: int) -> Dict[str, float]:

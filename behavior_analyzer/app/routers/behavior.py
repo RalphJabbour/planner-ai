@@ -1,114 +1,70 @@
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
-from app.database import get_db
+from fastapi import APIRouter, HTTPException, status
 from typing import List, Dict, Optional
 from datetime import datetime
 import pandas as pd
 from app.schemas.behavior import (
     SessionEventCreate, SessionEventUpdate, ContextSignalCreate,
-    ProductivityProfileResponse, RecommendationRequest, TimeSlot
+    ProductivityProfileResponse, TimeSlot,
+    DataPackageRequest, ProfileUpdateRequest, GetProfileRequest,
+    SessionSuccessPredictionRequest, ColdStartRequest,
+    RecommendationRequestWithData
 )
-from app.models.session import SessionEvent, ContextSignal, ProductivityProfile
 from app.ml.models import BehaviorModel
 
 router = APIRouter(prefix="/behavior", tags=["behavior"])
 
 # Session events endpoints
 @router.post("/session", status_code=status.HTTP_201_CREATED)
-async def create_session(session: SessionEventCreate, db: Session = Depends(get_db)):
+async def create_session(session: SessionEventCreate):
     """
     Create a new session event (start of a study session)
     """
-    new_session = SessionEvent(
-        student_id=session.student_id,
-        task_id=session.task_id,
-        start_time=session.start_time,
-        estimated_duration=session.estimated_duration
-    )
-    
-    db.add(new_session)
-    db.commit()
-    db.refresh(new_session)
-    
-    return {"event_id": new_session.event_id, "message": "Session started successfully"}
+    # Now just return a placeholder response - actual DB integration will be handled in business logic
+    return {"event_id": 0, "message": "Session started successfully"}
 
 @router.put("/session/{event_id}")
-async def update_session(event_id: int, update: SessionEventUpdate, db: Session = Depends(get_db)):
+async def update_session(event_id: int, update: SessionEventUpdate):
     """
     Update a session event (complete a session with feedback)
     """
-    session = db.query(SessionEvent).filter(SessionEvent.event_id == event_id).first()
-    if not session:
-        raise HTTPException(status_code=404, detail="Session not found")
-    
-    # Update fields
-    session.end_time = update.end_time
-    session.completed = update.completed
-    session.self_rating = update.self_rating
-    session.difficulty = update.difficulty
-    session.notes = update.notes
-    
-    # Calculate actual duration in minutes
-    if session.start_time and update.end_time:
-        delta = update.end_time - session.start_time
-        session.actual_duration = delta.total_seconds() / 60
-    
-    db.commit()
-    db.refresh(session)
-    
-    # Update productivity profile after session feedback
-    model = BehaviorModel(db)
-    model.update_profile(session.student_id)
-    
+    # Now just return a placeholder response - actual DB integration will be handled in business logic
     return {"message": "Session updated successfully"}
 
 # Context signals endpoints
 @router.post("/context", status_code=status.HTTP_201_CREATED)
-async def create_context_signal(signal: ContextSignalCreate, db: Session = Depends(get_db)):
+async def create_context_signal(signal: ContextSignalCreate):
     """
     Log a context signal (calendar event, sleep, exercise, etc.)
     """
-    new_signal = ContextSignal(
-        student_id=signal.student_id,
-        event_type=signal.event_type,
-        signal_type=signal.signal_type,
-        start_time=signal.start_time,
-        end_time=signal.end_time,
-        signal_value=signal.signal_value
-    )
-    
-    db.add(new_signal)
-    db.commit()
-    db.refresh(new_signal)
-    
-    return {"signal_id": new_signal.signal_id, "message": "Context signal logged successfully"}
+    # Now just return a placeholder response - actual DB integration will be handled in business logic
+    return {"signal_id": 0, "message": "Context signal logged successfully"}
 
-@router.get("/profile/{student_id}", response_model=ProductivityProfileResponse)
-async def get_productivity_profile(student_id: int, db: Session = Depends(get_db)):
+@router.post("/profile/{student_id}", response_model=ProductivityProfileResponse)
+async def get_productivity_profile(request: GetProfileRequest):
     """
     Get the current productivity profile for a student
     """
-    model = BehaviorModel(db)
-    profile = model.get_or_create_profile(student_id)
+    model = BehaviorModel(request.data_package)
+    profile = model.get_or_create_profile(request.student_id)
     
     return profile
 
 @router.post("/profile/{student_id}/update")
-async def update_productivity_profile(student_id: int, db: Session = Depends(get_db)):
+async def update_productivity_profile(request: ProfileUpdateRequest):
     """
     Force an update of the productivity profile
     """
-    model = BehaviorModel(db)
-    profile = model.update_profile(student_id, force_update=True)
+    model = BehaviorModel(request.data_package)
+    profile = model.update_profile(request.student_id, force_update=request.force_update)
     
-    return {"message": "Profile updated successfully"}
+    return {"message": "Profile updated successfully", "profile": profile}
 
 @router.post("/recommendation", response_model=List[Dict])
-async def get_recommendations(request: RecommendationRequest, db: Session = Depends(get_db)):
+async def get_recommendations(request: RecommendationRequestWithData):
     """
     Get recommended time slots for a task
     """
-    model = BehaviorModel(db)
+    model = BehaviorModel(request.data_package)
     recommendations = model.recommend_slots(
         student_id=request.student_id,
         task_duration=request.task_duration
@@ -117,40 +73,35 @@ async def get_recommendations(request: RecommendationRequest, db: Session = Depe
     return recommendations
 
 @router.post("/profile/{student_id}/cold-start")
-async def initialize_profile(student_id: int, preferences: Optional[Dict] = None, db: Session = Depends(get_db)):
+async def initialize_profile(request: ColdStartRequest):
     """
     Initialize a profile for a new student
     """
-    model = BehaviorModel(db)
-    profile = model.initialize_cold_start(student_id, preferences)
+    model = BehaviorModel(request.data_package)
+    profile = model.initialize_cold_start(request.student_id, request.preferences)
     
-    return {"message": "Profile initialized successfully"}
+    return {"message": "Profile initialized successfully", "profile": profile}
 
 @router.post("/predict/session")
-async def predict_session_success(
-    student_id: int, 
-    start_time: datetime, 
-    duration: int, 
-    db: Session = Depends(get_db)
-):
+async def predict_session_success(request: SessionSuccessPredictionRequest):
     """
     Predict success probability and efficiency for a potential session
     """
-    model = BehaviorModel(db)
+    model = BehaviorModel(request.data_package)
     prediction = model.predict_session_success(
-        student_id=student_id,
-        start_time=pd.Timestamp(start_time),
-        duration=duration
+        student_id=request.student_id,
+        start_time=pd.Timestamp(request.start_time),
+        duration=request.duration
     )
     
     return prediction
 
-@router.get("/api/behavior/scheduling-parameters/{student_id}")
-async def get_scheduling_parameters(student_id: int, db: Session = Depends(get_db)):
+@router.post("/scheduling-parameters/{student_id}")
+async def get_scheduling_parameters(student_id: int, data_package: DataPackageRequest):
     """
     Returns all parameters needed by OR-Tools scheduler
     """
-    model = BehaviorModel(db)
+    model = BehaviorModel(data_package)
     profile = model.get_or_create_profile(student_id)
     
     # Structure for OR-Tools integration

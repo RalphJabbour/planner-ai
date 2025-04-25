@@ -2,15 +2,11 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import logging
 import os
-from app.database import engine, Base
 from app.routers import behavior
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
-# # Create tables if they don't exist yet
-# Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Behavior Analyzer API")
 

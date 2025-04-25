@@ -36,6 +36,16 @@ services:
     ports:
       - "5433:5432"
 
+  behavior-analyzer:
+     build: ./behavior_analyzer
+     restart: always
+     ports:
+       - "8001:8000"
+     depends_on:
+       - db
+     env_file:
+       - .env
+
 volumes:
   postgres_data:
     # Using default volume settings

@@ -5,6 +5,8 @@ from app.database import get_db
 from app.models.student import Student
 from app.schemas.survey import SurveyAnswers
 from app.models.course import Course
+from app.auth.token import get_current_student
+
 
 router = APIRouter(prefix="", tags=["survey"])
 
@@ -43,14 +45,21 @@ async def get_survey_questions():
     return sample_questions
 
 @router.post("/survey-answers")
-async def submit_survey_answers(answers: SurveyAnswers, db: Session = Depends(get_db)):
-    # Verify student exists
-    student = db.query(Student).filter(Student.student_id == answers.student_id).first()
+async def submit_survey_answers(answers: SurveyAnswers,
+                                current_student: Student = Depends(get_current_student),
+                                 db: Session = Depends(get_db)):
+    """
+    Save the survey answers to the database.
+    """
+
+    # Check if the student is already registered
+    student = db.query(Student).filter(Student.student_id == current_student.student_id).first()
     if not student:
         raise HTTPException(status_code=404, detail="Student not found")
-    
-    # Save preferences to student record
-    student.preferences = answers.answers
+    # Save the survey answers to the database
+    logging.info(f"answers: {answers}")
+    student.preferences = answers.dict()
     db.commit()
-    
-    return {"message": "Survey answers submitted successfully."}
+    db.refresh(student)
+    logging.info(f"Survey answers saved for student ID: {student.student_id}")
+    return {"message": "Survey answers saved successfully"}

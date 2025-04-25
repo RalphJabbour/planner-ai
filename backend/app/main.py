@@ -4,7 +4,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import APIKeyHeader
 import app.models
 from app.database import engine, Base, get_db
-from app.routers import auth, survey, courses, ai_assistant, user, academic, tasks
+from app.routers import auth, survey, courses, ai_assistant, user, tasks
+# from app.routers import chat
 import logging
 import os
 from sqlalchemy.orm import Session
@@ -39,7 +40,8 @@ app.include_router(survey.router, prefix="/api")
 app.include_router(courses.router, prefix="/api")
 app.include_router(tasks.router, prefix="/api")
 app.include_router(user.router, prefix="/api")
-# app.include_router(academic.router, prefix="/api")
+
+# app.include_router(chat.router, prefix="/api")
 
 # app.include_router(ai_assistant.router, prefix="/api")
 

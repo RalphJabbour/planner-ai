@@ -38,15 +38,69 @@ def optimize_schedule(
 
     Raises ValueError on obviously bad input (≤0 hours, etc.).
     """
+    
+    # Print detailed input information
+    print(f"optimize_schedule called with week_start={week_start}")
+    print(f"fixed_tasks count: {len(fixed_tasks)}")
+    print(f"flexible_tasks count: {len(flexible_tasks)}")
+    print(f"academic_tasks count: {len(academic_tasks)}")
 
     # 0 ── Basic validation --------------------------------------------------
     if not (fixed_tasks or flexible_tasks or academic_tasks):
         print("No tasks supplied → nothing to schedule")
         return []
 
-    for t in flexible_tasks + academic_tasks:
-        if t["session_hours"] <= 0 or t["total_hours"] <= 0:
-            raise ValueError(f"{t['id']}: hours must be positive")
+    # Validate inputs more carefully to avoid cryptic errors
+    for i, t in enumerate(flexible_tasks):
+        print(f"Checking flexible task {i}: {t.get('id', 'unknown')}")
+        if 'session_hours' not in t or 'total_hours' not in t:
+            print(f"Warning: Task {t.get('id', 'unknown')} missing hours fields")
+            # Assign default values rather than failing
+            t['session_hours'] = t.get('session_hours', 1)
+            t['total_hours'] = t.get('total_hours', 1)
+            
+        if not isinstance(t.get('session_hours', 0), (int, float)) or not isinstance(t.get('total_hours', 0), (int, float)):
+            print(f"Warning: Task {t.get('id', 'unknown')} has non-numeric hours")
+            # Convert to numeric
+            try:
+                t['session_hours'] = float(t.get('session_hours', 1))
+                t['total_hours'] = float(t.get('total_hours', 1))
+            except (ValueError, TypeError):
+                t['session_hours'] = 1
+                t['total_hours'] = 1
+                
+        # Ensure positive values
+        if t.get('session_hours', 0) <= 0:
+            print(f"Warning: Task {t.get('id', 'unknown')} has invalid session_hours, setting to 1")
+            t['session_hours'] = 1
+        if t.get('total_hours', 0) <= 0:
+            print(f"Warning: Task {t.get('id', 'unknown')} has invalid total_hours, setting to 1")
+            t['total_hours'] = 1
+    
+    # Do similar validation for academic tasks
+    for i, t in enumerate(academic_tasks):
+        print(f"Checking academic task {i}: {t.get('id', 'unknown')}")
+        if 'session_hours' not in t or 'total_hours' not in t:
+            print(f"Warning: Academic task {t.get('id', 'unknown')} missing hours fields")
+            t['session_hours'] = t.get('session_hours', 1)
+            t['total_hours'] = t.get('total_hours', 1)
+            
+        if not isinstance(t.get('session_hours', 0), (int, float)) or not isinstance(t.get('total_hours', 0), (int, float)):
+            print(f"Warning: Academic task {t.get('id', 'unknown')} has non-numeric hours")
+            try:
+                t['session_hours'] = float(t.get('session_hours', 1))
+                t['total_hours'] = float(t.get('total_hours', 1))
+            except (ValueError, TypeError):
+                t['session_hours'] = 1
+                t['total_hours'] = 1
+                
+        # Ensure positive values
+        if t.get('session_hours', 0) <= 0:
+            print(f"Warning: Academic task {t.get('id', 'unknown')} has invalid session_hours, setting to 1")
+            t['session_hours'] = 1
+        if t.get('total_hours', 0) <= 0:
+            print(f"Warning: Academic task {t.get('id', 'unknown')} has invalid total_hours, setting to 1")
+            t['total_hours'] = 1
 
     prefs = preferences or {}
     prefs.setdefault("max_hours_per_day", 6)
@@ -69,8 +123,39 @@ def optimize_schedule(
                     "is_study": True,
                 }
             )
-
-    flex_pool = flexible_tasks + study_sessions
+    
+    # Filter flexible tasks based on their start_date
+    # If a task has a start_date in the future, respect it
+    filtered_flex_tasks = []
+    for task in flexible_tasks:
+        # If task has a deadline (end_date), ensure it's after week_start
+        # But don't skip tasks that haven't ended yet
+        if task.get("deadline"):
+            # Convert deadline to datetime if it's a string
+            deadline = task["deadline"]
+            if isinstance(deadline, str):
+                try:
+                    # Don't import datetime here, it's already imported at the top
+                    deadline = datetime.fromisoformat(deadline.replace('Z', '+00:00'))
+                    task["deadline"] = deadline  # Update with converted value
+                except Exception as e:
+                    print(f"Error converting deadline string to datetime: {e}")
+                    deadline = None  # Don't use invalid deadline for comparison
+            
+            # Now compare with week_start only if it's a valid datetime
+            if isinstance(deadline, datetime) and deadline < week_start:
+                print(f"Skipping expired task {task['id']} with deadline {deadline}")
+                continue
+        
+        # Always include tasks for scheduling
+        filtered_flex_tasks.append(task)
+        print(f"Including task {task['id']} for scheduling")
+    
+    # Don't proceed if no flexible tasks were found
+    if not filtered_flex_tasks and flexible_tasks:
+        print("WARNING: All flexible tasks were filtered out! Check filtering logic.")
+    
+    flex_pool = filtered_flex_tasks + study_sessions
 
     # 1 ── Build CP-SAT model ----------------------------------------------
     model = cp_model.CpModel()

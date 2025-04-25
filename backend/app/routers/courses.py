@@ -112,10 +112,8 @@ async def register_course(
     
     db.add(new_registration)
     db.commit()
-    logging.error("HIiiiiiiiiIiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii")
-    # timetable = {"times": [{"days": "M", "start_time": "0900", "end_time": "1600", "building": ".", "room": "."}, {"days": "WF", "start_time": "0900", "end_time": "1200", "building": ".", "room": "."}]}
+    
     try:
-        print("regostering course as a fixed obligation yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy")
         recurrences = course.timetable.get("times", [])
         for recurrence in recurrences:
             start_time = get_time(recurrence["start_time"])
@@ -124,14 +122,36 @@ async def register_course(
             if not start_time or not end_time:
                 return {"message": "Invalid time format"}
             
+            # Process each day string correctly
+            # For example, "MWF" should be processed as individual chars
+            days_string = recurrence.get("days", "")
+            
+            # Fix for course days processing - handle each character individually
+            days_of_week = []
+            for char in days_string:
+                if char == 'M':
+                    days_of_week.append("Monday")
+                elif char == 'T':
+                    days_of_week.append("Tuesday")
+                elif char == 'W':
+                    days_of_week.append("Wednesday")
+                elif char == 'R':
+                    days_of_week.append("Thursday")
+                elif char == 'F':
+                    days_of_week.append("Friday")
+                elif char == 'S':
+                    days_of_week.append("Saturday")
+                elif char == 'U':
+                    days_of_week.append("Sunday")
+            
             # Fix: Properly await the coroutine
             await create_fixed_obligation(
                 FixedObligationCreate(
                     name=course.course_name,
-                    description=course.course_code + " Lecture", # Added space after course code
+                    description=course.course_code + " Lecture", 
                     start_time=start_time,
                     end_time=end_time,
-                    days_of_week=get_days_array(recurrence.get("days", [])),
+                    days_of_week=days_of_week,
                     start_date=start_date,
                     end_date=end_date,
                     recurrence="weekly",
@@ -142,7 +162,22 @@ async def register_course(
             )
             
         # Call update_schedule to optimize the calendar
-        updated_events = update_schedule({"student_id": current_student.student_id}, db)
+        # Temporarily disabled
+        # updated_events = update_schedule({"student_id": current_student.student_id}, db)
+        
+        # If the course has a start date in the future, include it
+        start_date, end_date = get_start_end_date(course.semester)
+        
+        # Pass the start_date to ensure the optimizer respects it
+        optimization_payload = {
+            "student_id": current_student.student_id
+        }
+        
+        # If a future start date is specified, include it in the payload
+        if start_date and start_date > datetime.datetime.now():
+            optimization_payload["week_start"] = start_date
+            
+        updated_events = update_schedule(optimization_payload, db)
         return {"message": "Course registered successfully", "updated_events": updated_events}
     except Exception as e:
         logging.error(f"Error creating fixed obligation: {e}")

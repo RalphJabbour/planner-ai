@@ -1,4 +1,3 @@
-
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List, Optional, Dict, Any
@@ -119,70 +118,77 @@ async def create_fixed_obligation(
         
         # Create events for each day in days_of_week
         for day_name in obligation.days_of_week:
-            # Calculate the next occurrence of this day of the week
+            # Get the weekday index (0-6) for this day name
             target_day = days_of_week.get(day_name)
             if target_day is None:
                 logging.warning(f"Invalid day of week: {day_name}")
                 continue
-                
-            current_day = today.weekday()
-            days_until_target = (target_day - current_day) % 7
             
-            # If it's the same day but time has passed, start from next week
-            if days_until_target == 0 and obligation.start_time < today.time():
-                days_until_target = 7
+            # Determine the base date to start calculating events from
+            base_date = obligation.start_date if obligation.start_date else today.replace(hour=0, minute=0, second=0, microsecond=0)
             
-            next_occurrence = today + timedelta(days=days_until_target)
-            next_occurrence = next_occurrence.replace(hour=0, minute=0, second=0, microsecond=0)
+            # Find the first occurrence of this weekday on or after the base date
+            # If base_date is already the target weekday, use it directly
+            if base_date.weekday() == target_day:
+                first_occurrence = base_date
+            else:
+                # Calculate days until next occurrence of this weekday
+                days_until_target = (target_day - base_date.weekday()) % 7
+                first_occurrence = base_date + timedelta(days=days_until_target)
             
-            # Check if this occurrence is within the start_date and end_date constraints
-            if obligation.start_date and next_occurrence.date() < obligation.start_date.date():
-                next_occurrence = obligation.start_date
-            
+            # Monthly recurrence pattern
             if obligation.recurrence == "monthly":
-                for i in range(1, 7): # 6 months ahead
-                    event_date = next_occurrence + timedelta(days=i*30)
-                    if obligation.end_date and event_date.date() > obligation.end_date.date():
-                        continue
-                    start_datetime = datetime.combine(event_date.date(), obligation.start_time)
-                    end_datetime = datetime.combine(event_date.date(), obligation.end_time)
+                current_date = first_occurrence
+                for i in range(6):  # 6 months ahead
+                    # Skip if beyond end_date
+                    if obligation.end_date and current_date.date() > obligation.end_date.date():
+                        break
+                        
+                    # Create the calendar event
+                    start_datetime = datetime.combine(current_date.date(), obligation.start_time)
+                    end_datetime = datetime.combine(current_date.date(), obligation.end_time)
+                    
                     calendar_event = CalendarEvent(
                         student_id=current_student.student_id,
                         event_type="fixed_obligation",
                         fixed_obligation_id=new_obligation.obligation_id,
-                        date=event_date,
+                        date=current_date,
                         start_time=start_datetime,
                         end_time=end_datetime,
                         priority=obligation.priority,
                         status="scheduled"
                     )
                     db.add(calendar_event)
+                    
+                    # Move to next month (roughly)
+                    current_date = current_date + timedelta(days=30)
             else:
-                # Number of weeks to generate events for
-                weeks_ahead = 26 #52
-
-                # Create events for each occurrence
-                for i in range(0, weeks_ahead, 1 if obligation.recurrence != "biweekly" else 2):
-                    event_date = next_occurrence + timedelta(days=i*7)
+                # Weekly or biweekly recurrence
+                weeks_ahead = 26  # About 6 months
+                interval = 2 if obligation.recurrence == "biweekly" else 1
+                
+                # Create events for each weekly occurrence
+                for i in range(0, weeks_ahead, interval):
+                    current_date = first_occurrence + timedelta(days=i*7)
                     
                     # Skip if beyond end_date
-                    if obligation.end_date and event_date.date() > obligation.end_date.date():
-                        continue
-                    # Convert time objects to datetime for the specific date
-                    start_datetime = datetime.combine(event_date.date(), obligation.start_time)
-                    end_datetime = datetime.combine(event_date.date(), obligation.end_time)
+                    if obligation.end_date and current_date.date() > obligation.end_date.date():
+                        break
+                        
+                    # Create the calendar event
+                    start_datetime = datetime.combine(current_date.date(), obligation.start_time)
+                    end_datetime = datetime.combine(current_date.date(), obligation.end_time)
                     
                     calendar_event = CalendarEvent(
                         student_id=current_student.student_id,
                         event_type="fixed_obligation",
                         fixed_obligation_id=new_obligation.obligation_id,
-                        date=event_date,
+                        date=current_date,
                         start_time=start_datetime,
                         end_time=end_datetime,
                         priority=obligation.priority,
                         status="scheduled"
                     )
-                    
                     db.add(calendar_event)
         
         logging.info(f"Created calendar events for fixed obligation ID: {new_obligation.obligation_id}")    
@@ -193,7 +199,16 @@ async def create_fixed_obligation(
     
      # ── OR-Tools re-optimisation ───────────────────────────────────────────
     try:
-        updated_events = update_schedule({"student_id": current_student.student_id}, db)
+        # Pass the start_date to ensure the optimizer respects it
+        optimization_payload = {
+            "student_id": current_student.student_id
+        }
+        
+        # If a future start date is specified, include it in the payload
+        if obligation.start_date and obligation.start_date > datetime.now():
+            optimization_payload["week_start"] = obligation.start_date
+            
+        updated_events = update_schedule(optimization_payload, db)
     except Exception as e:
         logging.error("Error updating schedule: %s", e)
         raise HTTPException(500, "Error updating schedule")
@@ -276,64 +291,72 @@ async def update_fixed_obligation(
             
             # For each day in days_of_week
             for day_name in db_obligation.days_of_week:
-                # Calculate the next occurrence of this day of the week
+                # Get the weekday index (0-6) for this day name
                 target_day = days_of_week.get(day_name)
                 if target_day is None:
                     logging.warning(f"Invalid day of week: {day_name}")
                     continue
                     
-                current_day = today.weekday()
-                days_until_target = (target_day - current_day) % 7
+                # Determine the base date to start calculating events from
+                base_date = db_obligation.start_date if db_obligation.start_date else today.replace(hour=0, minute=0, second=0, microsecond=0)
                 
-                # If it's the same day but time has passed, start from next week
-                if days_until_target == 0 and db_obligation.start_time < today.time():
-                    days_until_target = 7
+                # Find the first occurrence of this weekday on or after the base date
+                # If base_date is already the target weekday, use it directly
+                if base_date.weekday() == target_day:
+                    first_occurrence = base_date
+                else:
+                    # Calculate days until next occurrence of this weekday
+                    days_until_target = (target_day - base_date.weekday()) % 7
+                    first_occurrence = base_date + timedelta(days=days_until_target)
                 
-                next_occurrence = today + timedelta(days=days_until_target)
-                next_occurrence = next_occurrence.replace(hour=0, minute=0, second=0, microsecond=0)
-                
-                # Check if this occurrence is within the start_date constraint
-                if db_obligation.start_date and next_occurrence.date() < db_obligation.start_date.date():
-                    next_occurrence = db_obligation.start_date
-                
+                # Monthly recurrence pattern
                 if db_obligation.recurrence == "monthly":
-                    for i in range(1, 7): # 6 months ahead
-                        event_date = next_occurrence + timedelta(days=i*30)
-                        if db_obligation.end_date and event_date.date() > db_obligation.end_date.date():
-                            continue
-                        start_datetime = datetime.combine(event_date.date(), db_obligation.start_time)
-                        end_datetime = datetime.combine(event_date.date(), db_obligation.end_time)
+                    current_date = first_occurrence
+                    for i in range(6):  # 6 months ahead
+                        # Skip if beyond end_date
+                        if db_obligation.end_date and current_date.date() > db_obligation.end_date.date():
+                            break
+                            
+                        # Create the calendar event
+                        start_datetime = datetime.combine(current_date.date(), db_obligation.start_time)
+                        end_datetime = datetime.combine(current_date.date(), db_obligation.end_time)
+                        
                         calendar_event = CalendarEvent(
                             student_id=current_student.student_id,
                             event_type="fixed_obligation",
                             fixed_obligation_id=db_obligation.obligation_id,
-                            date=event_date,
+                            date=current_date,
                             start_time=start_datetime,
                             end_time=end_datetime,
                             priority=db_obligation.priority,
                             status="scheduled"
                         )
                         db.add(calendar_event)
+                        
+                        # Move to next month (roughly)
+                        current_date = current_date + timedelta(days=30)
                 else:
-                    # Number of weeks to generate events for
-                    weeks_ahead = 26 #52
-                    # Create events for each occurrence
-                    for i in range(0, weeks_ahead, 1 if db_obligation.recurrence != "biweekly" else 2):
-                        event_date = next_occurrence + timedelta(days=i*7)
+                    # Weekly or biweekly recurrence
+                    weeks_ahead = 26  # About 6 months
+                    interval = 2 if db_obligation.recurrence == "biweekly" else 1
+                    
+                    # Create events for each weekly occurrence
+                    for i in range(0, weeks_ahead, interval):
+                        current_date = first_occurrence + timedelta(days=i*7)
                         
                         # Skip if beyond end_date
-                        if db_obligation.end_date and event_date.date() > db_obligation.end_date.date():
-                            continue
-                        
-                        # Convert time objects to datetime for the specific date
-                        start_datetime = datetime.combine(event_date.date(), db_obligation.start_time)
-                        end_datetime = datetime.combine(event_date.date(), db_obligation.end_time)
+                        if db_obligation.end_date and current_date.date() > db_obligation.end_date.date():
+                            break
+                            
+                        # Create the calendar event
+                        start_datetime = datetime.combine(current_date.date(), db_obligation.start_time)
+                        end_datetime = datetime.combine(current_date.date(), db_obligation.end_time)
                         
                         calendar_event = CalendarEvent(
                             student_id=current_student.student_id,
                             event_type="fixed_obligation",
                             fixed_obligation_id=db_obligation.obligation_id,
-                            date=event_date,
+                            date=current_date,
                             start_time=start_datetime,
                             end_time=end_datetime,
                             priority=db_obligation.priority,
@@ -443,6 +466,17 @@ async def create_flexible_obligation(
     # ── basic validation ────────────────────────────────────────────────
     if obligation.priority and not (1 <= obligation.priority <= 5):
         raise HTTPException(400, "Priority must be between 1 and 5")
+        
+    # Validate weekly target hours
+    if obligation.weekly_target_hours <= 0:
+        raise HTTPException(400, "Weekly target hours must be positive")
+        
+    # Make sure start_date is not None
+    if obligation.start_date is None:
+        obligation.start_date = datetime.now()
+        
+    print(f"Creating flexible obligation: {obligation.description}, {obligation.weekly_target_hours} hours/week")
+    print(f"Start date: {obligation.start_date}, End date: {obligation.end_date}")
 
     # ── insert FlexibleObligation row ───────────────────────────────────
     new_obligation = FlexibleObligation(
@@ -463,17 +497,47 @@ async def create_flexible_obligation(
         new_obligation.obligation_id,
         current_student.student_id,
     )
+    
+    # For debugging, get the created obligation from DB to verify it
+    created_obligation = db.query(FlexibleObligation).filter(
+        FlexibleObligation.obligation_id == new_obligation.obligation_id
+    ).first()
+    
+    if created_obligation:
+        print(f"Verified created flexible obligation: {created_obligation.obligation_id}")
+        print(f"Weekly target hours: {created_obligation.weekly_target_hours}")
+        print(f"Start date: {created_obligation.start_date}, End date: {created_obligation.end_date}")
+    else:
+        print("WARNING: Couldn't verify created obligation")
 
-    # ── OR-Tools re-optimisation (same pattern as fixed obligation) ────
+    # ── OR-Tools re-optimisation with start_date ────────────────────────
     try:
-        updated_events = update_schedule(
-            {"student_id": current_student.student_id}, db
-        )
+        # Pass the start_date to ensure the optimizer respects it
+        optimization_payload = {
+            "student_id": current_student.student_id,
+            "newly_created_obligation_id": new_obligation.obligation_id
+        }
+        
+        # If a future start date is specified, include it in the payload
+        # Make sure we convert datetime to string for JSON serialization if needed
+        if obligation.start_date and obligation.start_date > datetime.now():
+            # Convert datetime to string in ISO format if needed for JSON serialization
+            if hasattr(obligation.start_date, 'isoformat'):
+                optimization_payload["week_start"] = obligation.start_date
+            else:
+                # Already a string or other format
+                optimization_payload["week_start"] = obligation.start_date
+            
+        print(f"Calling update_schedule with payload: {optimization_payload}")
+        updated_events = update_schedule(optimization_payload, db)
+        print(f"update_schedule returned {len(updated_events)} events")
     except Exception as e:
         logging.error("Error updating schedule: %s", e)
-        raise HTTPException(500, "Error updating schedule")
+        import traceback
+        error_details = traceback.format_exc()
+        logging.error(f"Flexible obligation schedule error: {error_details}")
+        raise HTTPException(500, f"Error updating schedule: {str(e)}")
 
-    print("flexible obligation created successfully zzzzzzzzzzzzzzzzzzzzzzzzzzzzzz ")
     # ── response ────────────────────────────────────────────────────────
     return {
         "message": "Flexible obligation created successfully",
@@ -503,6 +567,10 @@ async def update_flexible_obligation(
     if obligation_update.priority and (obligation_update.priority < 1 or obligation_update.priority > 5):
         raise HTTPException(status_code=400, detail="Priority must be between 1 and 5")
     
+    # Check if we're updating schedule-related fields
+    schedule_updated = any(field in obligation_update.dict(exclude_unset=True) 
+                          for field in ['weekly_target_hours', 'start_date', 'end_date', 'priority', 'constraints'])
+    
     # Update fields that are provided
     update_data = obligation_update.dict(exclude_unset=True)
     for key, value in update_data.items():
@@ -510,6 +578,35 @@ async def update_flexible_obligation(
     
     db.commit()
     db.refresh(db_obligation)
+    
+    # If schedule-related fields were updated, trigger a re-optimization
+    if schedule_updated:
+        try:
+            # Pass the obligation_id to ensure the optimizer respects it
+            optimization_payload = {
+                "student_id": current_student.student_id,
+                "newly_created_obligation_id": obligation_id
+            }
+            
+            # If a future start date is specified, include it in the payload
+            if db_obligation.start_date and db_obligation.start_date > datetime.now():
+                optimization_payload["week_start"] = db_obligation.start_date
+                
+            print(f"Calling update_schedule with payload: {optimization_payload}")
+            updated_events = update_schedule(optimization_payload, db)
+            print(f"update_schedule returned {len(updated_events)} events")
+            
+            return {
+                "message": "Flexible obligation updated successfully",
+                "flexible_obligation_id": obligation_id,
+                "updated_events": updated_events
+            }
+        except Exception as e:
+            logging.error("Error updating schedule: %s", e)
+            import traceback
+            error_details = traceback.format_exc()
+            logging.error(f"Flexible obligation schedule error: {error_details}")
+            # Don't fail the whole request, just return the updated obligation without events
     
     return db_obligation
 
@@ -653,15 +750,31 @@ async def get_calendar_events(
         start_date = datetime.now()
     if end_date is None:
         end_date = start_date + timedelta(days=7)
+    
+    print(f"Retrieving calendar events from {start_date} to {end_date}")
+    
     # Ensure start_date is before end_date
     if start_date >= end_date:
         raise HTTPException(status_code=400, detail="Start date must be before end date")
+    
     # Fetch calendar events for the current student
+    # Note: Using >= for start_time and <= for end_time to ensure we get events
+    # that start within our window or end within our window
     events = db.query(CalendarEvent).filter(
         CalendarEvent.student_id == current_student.student_id,
         CalendarEvent.start_time >= start_date,
         CalendarEvent.end_time <= end_date
     ).order_by(CalendarEvent.start_time).all()
+    
+    # Log how many events we found of each type
+    event_types = {}
+    for event in events:
+        if event.event_type not in event_types:
+            event_types[event.event_type] = 0
+        event_types[event.event_type] += 1
+    
+    print(f"Found {len(events)} calendar events: {event_types}")
+    
     return events
 
 @router.get("/calendar-events/{event_id}")
@@ -680,3 +793,6 @@ async def get_calendar_event(
         raise HTTPException(status_code=404, detail="Calendar event not found or not owned by this student")
     
     return db_event
+
+# Track occupied time slots to avoid overlaps
+occupied_slots = {}

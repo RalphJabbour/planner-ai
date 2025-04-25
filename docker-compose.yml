@@ -17,15 +17,27 @@ services:
       - ./backend/.env
     depends_on:
       - db
-  course-sync:
-    build: ./course-sync
-    restart: always
-    depends_on:
-      - db
-    env_file:
-      - .env
-    environment:
-      - SYNC_INTERVAL=86400
+  
+  # mcp-server:
+  #   build: 
+  #     context: ./backend
+  #     dockerfile: mcp.Dockerfile
+  #   ports:
+  #     - "8001:8001"
+  #   env_file:
+  #     - ./backend/.env
+  #   depends_on:
+  #     - db
+
+  # course-sync:
+  #   build: ./course-sync
+  #   restart: always
+  #   depends_on:
+  #     - db
+  #   env_file:
+  #     - .env
+  #   environment:
+  #     - SYNC_INTERVAL=86400
 
   db:
     image: postgres:15

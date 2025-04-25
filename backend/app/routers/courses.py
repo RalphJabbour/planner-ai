@@ -62,7 +62,7 @@ def get_start_end_date(semester):
     return start_date, end_date
         
 
-@router.get("")
+@router.get("", operation_id="get_courses")
 async def get_courses(
     semester: Optional[str] = 'Summer 2024-2025',
     current_student: Student = Depends(get_current_student),
@@ -82,7 +82,7 @@ async def get_courses(
     return courses
 
 
-@router.post("/register")
+@router.post("/register", operation_id="register_course")
 async def register_course(
     registration: CourseRegistration,
     current_student: Student = Depends(get_current_student),
@@ -111,7 +111,6 @@ async def register_course(
     
     db.add(new_registration)
     db.commit()
-    logging.error("HIiiiiiiiiIiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii")
     # timetable = {"times": [{"days": "M", "start_time": "0900", "end_time": "1600", "building": ".", "room": "."}, {"days": "WF", "start_time": "0900", "end_time": "1200", "building": ".", "room": "."}]}
     try:
         recurrences = course.timetable.get("times", [])
@@ -144,7 +143,7 @@ async def register_course(
     
     return {"message": "Course registered successfully"}
 
-@router.get("/registered")
+@router.get("/registered", operation_id="get_registered_courses")
 async def get_registered_courses(
     current_student: Student = Depends(get_current_student),
     db: Session = Depends(get_db)
@@ -174,7 +173,7 @@ async def get_registered_courses(
     
     return {"courses": courses_list}
 
-@router.delete("/unregister")
+@router.delete("/unregister", operation_id="unregister_course")
 async def unregister_course(
     course_id: int,
     current_student: Student = Depends(get_current_student),

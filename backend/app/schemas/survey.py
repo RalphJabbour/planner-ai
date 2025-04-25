@@ -8,5 +8,4 @@ class SurveyQuestion(BaseModel):
     options: Optional[List[str]] = None
 
 class SurveyAnswers(BaseModel):
-    student_id: int
     answers: Dict[str, Any]

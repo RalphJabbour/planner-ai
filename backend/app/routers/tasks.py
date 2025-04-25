@@ -5,7 +5,7 @@ from pydantic import BaseModel
 from datetime import time
 from app.database import get_db
 from app.models.student import Student
-from app.models.schedule import FixedObligation, FlexibleObligation,CalendarEvent
+from app.models.schedule import FixedObligation, FlexibleObligation, CalendarEvent
 from app.auth.token import get_current_student
 from datetime import datetime, timedelta
 from app.models.academic import AcademicTask
@@ -57,7 +57,7 @@ class CalendarEventUpdate(BaseModel):
     priority: Optional[int] = None
     status: Optional[str] = None
 
-@router.get("/fixed")
+@router.get("/fixed", operation_id="get_fixed_obligations")
 async def get_fixed_obligations(
     current_student: Student = Depends(get_current_student),
     db: Session = Depends(get_db)
@@ -70,15 +70,16 @@ async def get_fixed_obligations(
     return obligations
 
 # Update your create_fixed_obligation function to handle days_of_week JSON array
-@router.post("/fixed")
+@router.post("/fixed", operation_id="create_fixed_obligation")
 async def create_fixed_obligation(
     obligation: FixedObligationCreate,
     current_student: Student = Depends(get_current_student),
     db: Session = Depends(get_db)
 ):
-    """Create a new fixed obligation for the current student"""
+    """Create a new fixed obligation for the current student
+        + add events to calendar
+    """
 
-    logging.error(f"Creating fixed obligation: {obligation} HIiIIiiiiiiiiiiII")
     # Validate priority
     if obligation.priority and (obligation.priority < 1 or obligation.priority > 5):
         raise HTTPException(status_code=400, detail="Priority must be between 1 and 5")
@@ -191,7 +192,7 @@ async def create_fixed_obligation(
     
     return new_obligation
 
-@router.get("/fixed/{obligation_id}")
+@router.get("/fixed/{obligation_id}", operation_id="get_fixed_obligation")
 async def get_fixed_obligation(
     obligation_id: int,
     current_student: Student = Depends(get_current_student),
@@ -208,14 +209,16 @@ async def get_fixed_obligation(
     
     return db_obligation
 
-@router.put("/fixed/{obligation_id}")
+@router.put("/fixed/{obligation_id}", operation_id="update_fixed_obligation")
 async def update_fixed_obligation(
     obligation_id: int,
     obligation_update: FixedObligationUpdate,
     current_student: Student = Depends(get_current_student),
     db: Session = Depends(get_db)
 ):
-    """Update an existing fixed obligation"""
+    """Update an existing fixed obligation
+        + edit events in calendar
+    """
     # Check if obligation exists and belongs to the student
     db_obligation = db.query(FixedObligation).filter(
         FixedObligation.obligation_id == obligation_id,
@@ -336,7 +339,7 @@ async def update_fixed_obligation(
     
     return db_obligation
 
-@router.delete("/fixed/{obligation_id}")
+@router.delete("/fixed/{obligation_id}", operation_id="delete_fixed_obligation")
 async def delete_fixed_obligation(
     obligation_id: int,
     current_student: Student = Depends(get_current_student),
@@ -390,7 +393,7 @@ class FlexibleObligationUpdate(BaseModel):
     priority: Optional[int] = None
     constraints: Optional[Dict[str, Any]] = None
 
-@router.get("/flexible")
+@router.get("/flexible", operation_id="get_flexible_obligations")
 async def get_flexible_obligations(
     current_student: Student = Depends(get_current_student),
     db: Session = Depends(get_db)
@@ -402,7 +405,7 @@ async def get_flexible_obligations(
     
     return obligations
 
-@router.get("/flexible/{obligation_id}")
+@router.get("/flexible/{obligation_id}", operation_id="get_flexible_obligation")
 async def get_flexible_obligation(
     obligation_id: int,
     current_student: Student = Depends(get_current_student),
@@ -419,7 +422,7 @@ async def get_flexible_obligation(
     
     return db_obligation
 
-@router.post("/flexible")
+@router.post("/flexible", operation_id="create_flexible_obligation")
 async def create_flexible_obligation(
     obligation: FlexibleObligationCreate,
     current_student: Student = Depends(get_current_student),
@@ -446,7 +449,7 @@ async def create_flexible_obligation(
     
     return new_obligation
 
-@router.put("/flexible/{obligation_id}")
+@router.put("/flexible/{obligation_id}", operation_id="update_flexible_obligation")
 async def update_flexible_obligation(
     obligation_id: int,
     obligation_update: FlexibleObligationUpdate,
@@ -477,7 +480,7 @@ async def update_flexible_obligation(
     
     return db_obligation
 
-@router.delete("/flexible/{obligation_id}")
+@router.delete("/flexible/{obligation_id}", operation_id="delete_flexible_obligation")
 async def delete_flexible_obligation(
     obligation_id: int,
     current_student: Student = Depends(get_current_student),
@@ -500,7 +503,7 @@ async def delete_flexible_obligation(
 
 # ---- Academic Tasks ----
 
-@router.get("/academic-tasks")
+@router.get("/academic-tasks", operation_id="get_academic_tasks")
 async def get_academic_tasks(
     days: int = 7,
     current_student: Student = Depends(get_current_student),
@@ -533,8 +536,7 @@ async def get_academic_tasks(
     
     return tasks
 
-
-@router.get("/academic-tasks/course/{course_id}")
+@router.get("/academic-tasks/course/{course_id}", operation_id="get_academic_tasks_by_course")
 async def get_academic_tasks_by_course(
     course_id: int,
     days: Optional[int] = None,
@@ -605,7 +607,7 @@ async def create_academic_task(
     raise HTTPException(status_code=501, detail="Academic task creation not implemented yet")
 
 # ---- Calendar Events ----
-@router.get("/calendar-events")
+@router.get("/calendar-events", operation_id="get_calendar_events")
 async def get_calendar_events(
     current_student: Student = Depends(get_current_student),
     start_date: Optional[datetime] = None,
@@ -628,7 +630,7 @@ async def get_calendar_events(
     ).order_by(CalendarEvent.start_time).all()
     return events
 
-@router.get("/calendar-events/{event_id}")
+@router.get("/calendar-events/{event_id}", operation_id="get_calendar_event")
 async def get_calendar_event(
     event_id: int,
     current_student: Student = Depends(get_current_student),

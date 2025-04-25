@@ -4,37 +4,44 @@ from sqlalchemy.orm import Session
 from app.models.reflected_models import SessionEvent, ContextSignal 
 from typing import Dict, List, Tuple 
 import datetime 
+from app.schemas.behavior import SessionEventData, ContextSignalData
 
 class FeatureExtractor:
     """
     Extracts features from session events and context signals for behavior analysis
     """
 
-    def __init__(self, db: Session):
-        self.db = db 
+    def __init__(self, sessions: List[SessionEventData] = None, context_signals: List[ContextSignalData] = None):
+        self.sessions = sessions or []
+        self.context_signals = context_signals or []
     
     def extract_slot_efficiency(self, student_id: int, 
                                 days_lookback: int = 30) -> Dict[str, float]:
         """
         Computes time slot efficiencies using Exponential Moving Average
         """
-        # Get sessions from the past days_lookback days 
-        cutoff_date = datetime.datetime.now() - datetime.timedelta(days=days_lookback)
-        sessions = self.db.query(SessionEvent).filter(
-            SessionEvent.student_id == student_id,
-            SessionEvent.start_time >= cutoff_date,
-            SessionEvent.completed == True
-        ).all()
+        # Filter sessions from the past days_lookback days 
+        # Make sure cutoff_date is timezone-aware
+        cutoff_date = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=days_lookback)
+        filtered_sessions = [
+            session for session in self.sessions
+            if session.student_id == student_id
+            and session.start_time >= cutoff_date
+            and session.completed == True
+        ]
 
         # Process each session to extract time slot and efficiency
         slot_data = []
-        for session in sessions:
+        for session in filtered_sessions:
             # Skip sessions with no end time
             if not session.end_time:
                 continue 
             
             # Calculate efficiency metrics
-            efficiency = min(session.estimated_duration / session.actual_duration, 1.0) if session.actual_duration else 0
+            if not session.actual_duration or session.actual_duration <= 0 or not session.estimated_duration:
+                continue  # Skip invalid durations
+                
+            efficiency = min(session.estimated_duration / session.actual_duration, 1.0)
 
             # Adjust by self rating if available
             if session.self_rating:
@@ -52,12 +59,15 @@ class FeatureExtractor:
         # Compute EMA for each slot
         slot_efficiencies = {}
 
-        for slot, entries in pd.DataFrame(slot_data, columns=["slot", "efficiency"]).groupby("slot"):
-            # Compute EMA with alpha=0.3 (more weight to recent sessions)
-            ema = entries["efficiency"].ewm(alpha=0.3).mean().iloc[-1]
-            slot_efficiencies[slot] = round(ema, 2)
+        if slot_data:  # Only process if we have data
+            df = pd.DataFrame(slot_data, columns=["slot", "efficiency"])
+            for slot, entries in df.groupby("slot"):
+                if not entries.empty:
+                    # Compute EMA with alpha=0.3 (more weight to recent sessions)
+                    ema = entries["efficiency"].ewm(alpha=0.3).mean().iloc[-1]
+                    slot_efficiencies[slot] = round(ema, 2)
 
-        return slot_efficiencies 
+        return slot_efficiencies
     
     def identify_peak_windows(self, slot_efficiencies: Dict[str, float], 
                             threshold: float = 0.7) -> List[Dict]:
@@ -107,20 +117,23 @@ class FeatureExtractor:
             
         return peak_windows 
 
-    def compute_session_paramters(self, student_id: int) -> Dict[str, float]:
+    def compute_session_parameters(self, student_id: int) -> Dict[str, float]:
         """
         Calculates ideal session parameters based on past performance
         """
-        # Get completed sessions with ratings
-        sessions = self.db.query(SessionEvent).filter(
-            SessionEvent.student_id == student_id,
-            SessionEvent.completed == True,
-            SessionEvent.self_rating != None
-        ).order_by(SessionEvent.start_time.desc()).limit(50).all()
+        # Filter completed sessions with ratings
+        filtered_sessions = [
+            session for session in self.sessions
+            if session.student_id == student_id
+            and session.completed == True
+            and session.self_rating is not None
+        ]
+        # Sort by start_time descending and limit to 50
+        filtered_sessions = sorted(filtered_sessions, key=lambda x: x.start_time, reverse=True)[:50]
 
         # Calculate parameters
-        durations = [session.actual_duration for session in sessions if session.actual_duration]
-        ratings = [session.self_rating for session in sessions if session.self_rating]
+        durations = [session.actual_duration for session in filtered_sessions if session.actual_duration]
+        ratings = [session.self_rating for session in filtered_sessions if session.self_rating]
 
         parameters = {
             "max_continuous_minutes": 45, # Default
@@ -171,38 +184,50 @@ class FeatureExtractor:
         """
         Calculates fatigue and recovery parameters
         """
-        # Get all completed sessions ordered by time
-        sessions = self.db.query(SessionEvent).filter(
-            SessionEvent.student_id == student_id,
-            SessionEvent.completed == True,
-            SessionEvent.self_rating != None
-        ).order_by(SessionEvent.start_time).all()
+        # Filter completed sessions with ratings
+        filtered_sessions = [
+            session for session in self.sessions
+            if session.student_id == student_id
+            and session.completed == True
+            and session.self_rating is not None
+        ]
+        # Sort by start_time
+        filtered_sessions = sorted(filtered_sessions, key=lambda x: x.start_time)
 
         parameters = {
             "fatigue_factor": 0.15, # Default
             "recovery_factor": 0.2 # Default
         }
 
-        if len(sessions) < 10:
+        if len(filtered_sessions) < 10:
             return parameters 
         
         # Calculate back-to-back sessions
         grouped_sessions = []
         current_group = []
 
-        for i, session in enumerate(sessions):
+        for i, session in enumerate(filtered_sessions):
             if i == 0:
                 current_group.append(session)
                 continue 
             
-            prev_session = sessions[i - 1]
+            prev_session = filtered_sessions[i - 1]
+            # Skip if end_time is missing
+            if not prev_session.end_time or not session.start_time:
+                continue
+            
             # If sessions are close (less than 30 minutes apart), consider them in the same group
-            if (session.start_time - prev_session.end_time).total_seconds() < 1800:
-                current_group.append(session)
-            else:
-                if current_group:
-                    grouped_sessions.append(current_group)
-                current_group = [session]
+            try:
+                time_diff = (session.start_time - prev_session.end_time).total_seconds()
+                if time_diff < 1800:  # 30 minutes in seconds
+                    current_group.append(session)
+                else:
+                    if current_group:
+                        grouped_sessions.append(current_group)
+                    current_group = [session]
+            except (TypeError, ValueError):
+                # Handle any comparison errors
+                continue
         
         if current_group:
             grouped_sessions.append(current_group)
@@ -239,137 +264,148 @@ class FeatureExtractor:
                 prev_last = prev_group[-1]
                 curr_first = curr_group[0]
 
-                if prev_last.self_rating and curr_first.self_rating:
-                    # Calculate time gap in hours
-                    time_gap = (curr_first.start_time - prev_last.end_time).total_seconds() / 3600
+                if prev_last.self_rating and curr_first.self_rating and prev_last.end_time and curr_first.start_time:
+                    try:
+                        # Calculate time gap in hours
+                        time_gap = (curr_first.start_time - prev_last.end_time).total_seconds() / 3600
 
-                    # Calculate rating improvement
-                    if prev_last.self_rating > 0:
-                        improvement = max(0, curr_first.self_rating - prev_last.self_rating) / prev_last.self_rating
+                        # Calculate rating improvement
+                        if prev_last.self_rating > 0:
+                            improvement = max(0, curr_first.self_rating - prev_last.self_rating) / prev_last.self_rating
 
-                        # Normalize by time
-                        recovery_rate = improvement / time_gap if time_gap > 0 else 0
-                        recoveries.append(recovery_rate)
-
+                            # Normalize by time
+                            recovery_rate = improvement / time_gap if time_gap > 0 else 0
+                            recoveries.append(recovery_rate)
+                    except (TypeError, ValueError):
+                        # Handle any comparison errors
+                        continue
+        
         if recoveries:
-            # Take the median to avoid outliers
-            parameters["recovery_factor"] = min(max(np.median(recoveries), 0.05), 0.5)
+            parameters["recovery_factor"] = min(max(np.mean(recoveries), 0.05), 0.5)
         
         return parameters
 
     def compute_adjustment_factors(self, student_id: int) -> Dict[str, Dict]:
         """
-        Calculates day-of-week multipliers and another adjustment factors
+        Calculates day-of-week adjustment factors and other adjustments
         """
+        # Filter completed sessions
+        filtered_sessions = [
+            session for session in self.sessions
+            if session.student_id == student_id
+            and session.completed == True
+        ]
 
-        # Get all completed sessions with ratings
-        sessions = self.db.query(SessionEvent).filter(
-            SessionEvent.student_id == student_id,
-            SessionEvent.completed == True,
-            SessionEvent.self_rating != None
-        ).all()
-
-        # Default values - neutral multiplier
-        default_days = {
-            'Monday': 1.0, 'Tuesday': 1.0, 'Wednesday': 1.0, 
-            'Thursday': 1.0, 'Friday': 1.0, 'Saturday': 1.0, 'Sunday': 1.0 
+        # Default values
+        defaults = {
+            "day_multipliers": {
+                'Monday': 1.0, 'Tuesday': 1.0, 'Wednesday': 1.0, 
+                'Thursday': 1.0, 'Friday': 1.0, 'Saturday': 1.0, 'Sunday': 1.0
+            },
+            "soft_obligation_buffer": 30
         }
 
-        if len(sessions) < 7: # Need at least a week's worth of data
-            return {"day_multipliers": default_days, "soft_obligation_buffer": 30}
+        if len(filtered_sessions) < 10:
+            return defaults
         
-        # Group by day of week
-        day_ratings = {}
-        for session in sessions:
+        # Calculate day of week multipliers based on completion success and efficiency
+        day_scores = {}
+        day_counts = {}
+
+        for session in filtered_sessions:
             day = session.start_time.strftime("%A")
-            if day not in day_ratings:
-                day_ratings[day] = []
+            if day not in day_scores:
+                day_scores[day] = 0
+                day_counts[day] = 0
+
+            # Calculate score based on completion, efficiency, and self-rating
+            score = 0
+
+            # Award points for completion
+            if session.completed:
+                score += 0.5
+            
+            # Add points for efficiency
+            if session.actual_duration and session.estimated_duration and session.actual_duration > 0:
+                efficiency = min(session.estimated_duration / session.actual_duration, 1.0)
+                score += efficiency * 0.3
+            
+            # Add points for self-rating
             if session.self_rating:
-                day_ratings[day].append(session.self_rating)
+                score += (session.self_rating / 5.0) * 0.2
+            
+            day_scores[day] += score
+            day_counts[day] += 1
         
-        # Calculate average rating by day
-        day_averages = {}
-        for day, ratings in day_ratings.items():
-            if ratings:
-                day_averages[day] = sum(ratings) / len(ratings)
-
-        # Skip calculation if we don't have enough days
-        if len(day_averages) < 3:
-            return {"day_multipliers": default_days, "soft_obligation_buffer": 30}
-
-        # Calculate overall average
-        overall_avg = sum(day_averages.values()) / len(day_averages)
-
-        # Calculate multipliers relative to overall average
+        # Calculate average score for each day
         day_multipliers = {}
-        for day in default_days:
-            if day in day_averages and overall_avg > 0:
-                # Normalize around 1.0 with limited range (0.8 to 1.2)
-                multiplier = day_averages[day] / overall_avg
-                day_multipliers[day] = min(max(multiplier, 1.2), 0.8)
+        for day in day_scores:
+            if day_counts[day] > 0:
+                avg_score = day_scores[day] / day_counts[day]
+                # Scale to reasonable multiplier (0.7 to 1.3)
+                day_multipliers[day] = min(max(avg_score, 0.7), 1.3)
             else:
                 day_multipliers[day] = 1.0
         
-        # Calculate soft obligation buffer based on context analysis
-        buffer = 30 # Default 30 minutes
+        # Normalize so average is 1.0
+        if day_multipliers:
+            avg_multiplier = sum(day_multipliers.values()) / len(day_multipliers)
+            if avg_multiplier > 0:
+                day_multipliers = {d: m / avg_multiplier for d, m in day_multipliers.items()}
+        
+        # Calculate buffer from context signals
+        buffer_minutes = 30  # Default
 
-        # Get context signals
-        context_signals = self.db.query(ContextSignal).filter(
-            ContextSignal.student_id == student_id,
-        ).all()
-
-        # Look for patterns in session performance around context events
-        if context_signals and sessions:
-            pre_scores = []
-            post_scores = []
-
-            for signal in context_signals:
-                # Find sessions within 2 hours before and after this context event
-                pre_event = [s for s in sessions if signal.start_time - datetime.timedelta(hours=2) <= s.end_time <= signal.start_time]
-                post_event = [s for s in sessions if signal.end_time <= s.start_time <= signal.end_time + datetime.timedelta(hours=2)]
-
-                # Calculate average ratings
-                if pre_event and any(s.self_rating for s in pre_event):
-                    pre_scores.append(sum(s.self_rating for s in pre_event if s.self_rating) / sum(1 for s in pre_event if s. self_rating))
-
-                if post_event and any(s.self_rating for s in post_event):
-                    post_scores.append(sum(s.self_rating for s in post_event if s.self_rating) / sum(1 for s in post_event if s.self_rating))
+        # Get buffer from early arrival versus calendar events
+        if self.context_signals:
+            # Filter calendar events for this student
+            calendar_events = [signal for signal in self.context_signals 
+                               if signal.student_id == student_id and 
+                               signal.signal_type in ['class', 'meeting', 'exam']]
             
-            # Calculate buffer based on performance drop
-            if pre_scores and post_scores:
-                pre_avg = sum(pre_scores) / len(pre_scores)
-                post_avg = sum(post_scores) / len(post_scores)
+            # Get sessions that preceded calendar events
+            early_buffers = []
+            for event in calendar_events:
+                for session in filtered_sessions:
+                    # Skip if missing time data
+                    if not session.end_time or not event.start_time:
+                        continue
+                        
+                    try:
+                        # If session ended before event started
+                        if session.end_time < event.start_time:
+                            buffer = (event.start_time - session.end_time).total_seconds() / 60
+                            if buffer < 120:  # Only consider reasonable buffers
+                                early_buffers.append(buffer)
+                    except (TypeError, ValueError):
+                        # Handle any comparison errors
+                        continue
             
-                # If post-event performance is lower, increase buffer
-                if post_avg < pre_avg:
-                    drop_ratio = max(0, (pre_avg - post_avg) / pre_avg)
-                    # Scale buffer: 15-60 minutes based on drop
-                    buffer = min(max(15 + drop_ratio * 45, 15), 60)
-
+            if early_buffers:
+                buffer_minutes = np.median(early_buffers)
+        
         return {
             "day_multipliers": day_multipliers,
-            "soft_obligation_buffer": buffer
+            "soft_obligation_buffer": max(min(buffer_minutes, 60), 10)  # Cap between 10-60 mins
         }
 
     def compute_retention_indicators(self, student_id: int) -> Dict[str, float]:
         """
-        Caclulates retention rates by time slot (optional)
+        Analyzes optimal retention rates based on task repetition patterns
         """
-        # This would require quiz/test data which may not be available
-        # For now, return a placeholder with reasonable defaults
-
-        # Get time slots from efficiency data
-        slot_efficiencies = self.extract_slot_efficiency(student_id)
-
-        # Generate simulated retention data based on slot efficiency
-        # The assumption: higher efficiency slots correlate with better retention
+        # This requires longitudinal data... for now return simple defaults
         retention_rates = {}
-
-        for slot, efficiency in slot_efficiencies.items():
-            # Add some randomness but keep correlation with efficiency
-            noise = np.random.uniform(0, 0.1)
-            retention = min(max(efficiency * 0.8 + noise, 0.3), 0.95)
-            retention_rates[slot] = round(retention, 2)
+        
+        # Default retention profile
+        for day in ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']:
+            for hour in range(7, 23):
+                # Morning and evening tend to be better for retention
+                if 8 <= hour <= 11:  # Morning
+                    retention_rates[f"{day}-{hour}"] = 0.8
+                elif 18 <= hour <= 21:  # Evening
+                    retention_rates[f"{day}-{hour}"] = 0.7
+                else:
+                    retention_rates[f"{day}-{hour}"] = 0.6
         
         return retention_rates
     

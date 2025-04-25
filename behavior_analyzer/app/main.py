@@ -2,7 +2,6 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import logging
 import os
-from app.database import engine, Base
 from app.routers import behavior
 
 # Configure logging

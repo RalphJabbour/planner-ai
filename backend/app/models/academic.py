@@ -8,7 +8,7 @@ class AcademicTask(Base):
     #for each assignment and for each exam there should be a task
     __tablename__ = "academic_tasks"
     
-    task_id = Column(Integer, primary_key=True, index=True)
+    task_id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     course_id = Column(Integer, ForeignKey("courses.course_id", ondelete="CASCADE"))
 
     task_type = Column(String(50))
@@ -35,7 +35,7 @@ class StudyMaterial(Base):
     # will be used to create academic tasks
     __tablename__ = "study_materials"
     
-    material_id = Column(Integer, primary_key=True, index=True)
+    material_id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     course_id = Column(Integer, ForeignKey("courses.course_id", ondelete="CASCADE"))
     task_id = Column(Integer, ForeignKey("academic_tasks.task_id", ondelete="SET NULL"))
     material_type = Column(String(50))

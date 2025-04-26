@@ -1,15 +1,12 @@
-version: "3.8"
-
 services:
   frontend:
     build: ./frontend
     ports:
-      - "3000:80"
+      - '3000:80'
     depends_on:
       - backend
 
   backend:
-    # Replace with your actual backend image/build info
     build: ./backend
     ports:
       - "8000:8000"
@@ -17,6 +14,18 @@ services:
       - ./backend/.env
     depends_on:
       - db
+
+    # mcp-server:
+  #   build: 
+  #     context: ./backend
+  #     dockerfile: mcp.Dockerfile
+  #   ports:
+  #     - "8001:8001"
+  #   env_file:
+  #     - ./backend/.env
+  #   depends_on:
+  #     - db
+  
   course-sync:
     build: ./course-sync
     restart: always
@@ -27,6 +36,20 @@ services:
     environment:
       - SYNC_INTERVAL=86400
 
+  iep-quiz:
+    build: ./iep-quiz
+    ports:
+      - "9001:9001"
+    env_file:
+      - ./iep-quiz/.env
+    depends_on:
+      - db
+    environment:
+      - PYTHONHTTPSVERIFY=0  # Temporarily disable certificate verification
+      - UV_TIMEOUT=120       # Increase timeouts
+      - UV_RETRIES=5         # Increase retry attempts
+      - PYTHONUNBUFFERED=1
+
   db:
     image: postgres:15
     env_file:
@@ -34,7 +57,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
-      - "5433:5432"
+      - '5433:5432'
 
   behavior-analyzer:
      build: ./behavior_analyzer

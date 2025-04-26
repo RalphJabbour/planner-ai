@@ -60,4 +60,4 @@ logs/
 *egg-info/
 
 toremove*
-*aub_schedule*
+*aub_schedule*.DS_Store

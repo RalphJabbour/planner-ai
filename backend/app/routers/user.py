@@ -11,7 +11,7 @@ from app.auth.token import get_current_student
 router = APIRouter(prefix="/users", tags=["users"])  # Fixed tag to "users" instead of "courses"
 
 
-@router.get("/me")
+@router.get("/me", operation_id="get_user_info")
 async def get_user_info(
     current_student: Student = Depends(get_current_student),
     db: Session = Depends(get_db)

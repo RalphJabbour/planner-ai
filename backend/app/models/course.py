@@ -21,7 +21,7 @@ class Course(Base):
 class StudentCourse(Base):
     __tablename__ = "student_courses"
     
-    student_course_id = Column(Integer, primary_key=True, index=True)
+    student_course_id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     student_id = Column(Integer, ForeignKey("students.student_id", ondelete="CASCADE"))
     course_id = Column(Integer, ForeignKey("courses.course_id", ondelete="CASCADE"))
     registered_at = Column(TIMESTAMP, server_default=text("CURRENT_TIMESTAMP"))

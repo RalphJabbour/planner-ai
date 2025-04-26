@@ -1,10 +1,14 @@
-from app.routers import tasks
 from fastapi import FastAPI, Depends, HTTPException, Security
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import APIKeyHeader
+from sqlalchemy.orm import Session
+import logging
+import os
+
+# Import database and models
 import app.models
 from app.database import engine, Base, get_db
-from app.routers import auth, survey, courses, ai_assistant, user, tasks
+from app.routers import auth, survey, courses, user, tasks
 # from app.routers import chat
 import logging
 import os
@@ -12,6 +16,10 @@ from sqlalchemy.orm import Session
 from app.models.student import Student
 from app.models.course import Course, StudentCourse
 from app.routers.auth import hash_password
+from app.or_tools.main import or_tools_router
+
+# Create the FastAPI app instance
+app = FastAPI(title="Student Planner API")
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -19,8 +27,6 @@ logger = logging.getLogger(__name__)
 
 # Create tables if they don't exist yet
 Base.metadata.create_all(bind=engine)
-
-app = FastAPI(title="Student Planner API")
 
 # CORS middleware
 origins = [
@@ -40,6 +46,8 @@ app.include_router(survey.router, prefix="/api")
 app.include_router(courses.router, prefix="/api")
 app.include_router(tasks.router, prefix="/api")
 app.include_router(user.router, prefix="/api")
+app.include_router(or_tools_router, prefix="/api/or-tools")
+
 
 # app.include_router(chat.router, prefix="/api")
 

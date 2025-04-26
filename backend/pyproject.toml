@@ -20,4 +20,5 @@ dependencies = [
     "fastapi-mcp>=0.3.3",
     "httpx>=0.26.0",
     "sse-starlette>=2.0.0",
+    "ortools==9.12.4544",  # Updated version
 ]

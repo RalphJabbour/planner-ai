@@ -2,6 +2,7 @@ from sqlalchemy import Column, String, Integer, TIMESTAMP, Date, Text, JSON, For
 from sqlalchemy.sql import text
 from app.database import Base
 
+# TODO: we still have not used this table
 class DailyLog(Base):
     __tablename__ = "daily_logs"
     

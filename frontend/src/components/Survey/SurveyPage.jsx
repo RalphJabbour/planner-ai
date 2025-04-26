@@ -112,12 +112,15 @@ function SurveyPage() {
     });
   };
 
+  const token = localStorage.getItem("accessToken");
+
   const submitAnswersAndRedirect = async () => {
     try {
       // Submit answers to backend
       await fetch("/api/survey-answers", {
         method: "POST",
         headers: {
+          "Authorization": `Bearer ${token}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ answers }),

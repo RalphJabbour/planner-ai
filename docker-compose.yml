@@ -2,12 +2,11 @@ services:
   frontend:
     build: ./frontend
     ports:
-      - "3000:80"
+      - '3000:80'
     depends_on:
       - backend
 
   backend:
-    # Replace with your actual backend image/build info
     build: ./backend
     ports:
       - "8000:8000"
@@ -15,6 +14,17 @@ services:
       - ./backend/.env
     depends_on:
       - db
+
+    # mcp-server:
+  #   build: 
+  #     context: ./backend
+  #     dockerfile: mcp.Dockerfile
+  #   ports:
+  #     - "8001:8001"
+  #   env_file:
+  #     - ./backend/.env
+  #   depends_on:
+  #     - db
   
   course-sync:
     build: ./course-sync
@@ -47,7 +57,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
-      - "5433:5432"
+      - '5433:5432'
 
 volumes:
   postgres_data:

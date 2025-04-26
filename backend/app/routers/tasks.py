@@ -41,22 +41,22 @@ class FixedObligationUpdate(BaseModel):
 
 # ---- Calendar Events ----
 
-# class CalendarEventCreate(BaseModel):
-#     event_type: str  # 'fixed_obligation', 'flexible_obligation', 'study_session', or 'class'
-#     fixed_obligation_id: Optional[int] = None
-#     flexible_obligation_id: Optional[int] = None
-#     study_session_id: Optional[int] = None
-#     date: datetime
-#     start_time: datetime
-#     end_time: datetime
-#     priority: Optional[int] = 3
-#     status: Optional[str] = "scheduled"
+class CalendarEventCreate(BaseModel):
+    event_type: str  # 'fixed_obligation', 'flexible_obligation', 'study_session', or 'class'
+    fixed_obligation_id: Optional[int] = None
+    flexible_obligation_id: Optional[int] = None
+    study_session_id: Optional[int] = None
+    date: datetime
+    start_time: datetime
+    end_time: datetime
+    priority: Optional[int] = 3
+    status: Optional[str] = "scheduled"
 
-# class CalendarEventUpdate(BaseModel):
-#     start_time: Optional[datetime] = None
-#     end_time: Optional[datetime] = None
-#     priority: Optional[int] = None
-#     status: Optional[str] = None
+class CalendarEventUpdate(BaseModel):
+    start_time: Optional[datetime] = None
+    end_time: Optional[datetime] = None
+    priority: Optional[int] = None
+    status: Optional[str] = None
 
 def create_calendar_events_from_fixed(
         fixed_obligation: FixedObligation,
@@ -244,7 +244,7 @@ async def create_fixed_obligation(
         if obligation.start_date and obligation.start_date > datetime.now():
             optimization_payload["week_start"] = obligation.start_date
             
-        updated_events = update_schedule(optimization_payload, db)
+        updated_events = update_schedule(db, student_id=current_student.student_id)
     except Exception as e:
         logging.error("Error updating schedule: %s", e)
         raise HTTPException(500, "Error updating schedule")
@@ -369,7 +369,7 @@ async def delete_fixed_obligation(
 # ---- Flexible Obligations ----
 
 class FlexibleObligationCreate(BaseModel):
-    name: str
+    name: str | None = None        # NEW
     description: Optional[str] = None
     weekly_target_hours: float
     constraints: Optional[Dict[str, Any]] = None

@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   frontend:
     build: ./frontend
@@ -37,6 +35,20 @@ services:
       - .env
     environment:
       - SYNC_INTERVAL=86400
+
+  iep-quiz:
+    build: ./iep-quiz
+    ports:
+      - "9001:9001"
+    env_file:
+      - ./iep-quiz/.env
+    depends_on:
+      - db
+    environment:
+      - PYTHONHTTPSVERIFY=0  # Temporarily disable certificate verification
+      - UV_TIMEOUT=120       # Increase timeouts
+      - UV_RETRIES=5         # Increase retry attempts
+      - PYTHONUNBUFFERED=1
 
   db:
     image: postgres:15

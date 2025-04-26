@@ -1,263 +1,242 @@
-"""
-Core scheduling engine ― Google OR-Tools CP-SAT
-Supports:
-  1. fixed_tasks      (hard-blocked events)
-  2. flexible_tasks   (total_hours / session_hours / dependencies)
-  3. academic_tasks   (expanded into study sessions)
-"""
+# optimizer.py – Unified rescheduling & OR‑Tools solver
+"""Planner.AI scheduler – overlap‑safe & window‑aware (28 Apr 2025)
 
+Fixes
+-----
+1. **Respect original `start_date`/`end_date` for previously‑scheduled tasks**
+   We re‑query their `FlexibleObligation` rows so reclaimed tasks keep their
+   original time window.
+2. **No overlap between any sessions (flex‑vs‑flex)**
+   Replaced pairwise hack with proper **`AddNoOverlap`** using interval vars and
+   fixed intervals for the already‑blocked fixed events.
+"""
 from __future__ import annotations
 
+import logging
 from datetime import datetime, timedelta
-from typing import Dict, List
+from typing import List, Dict, Any, Tuple
 
+from sqlalchemy.orm import Session
+from sqlalchemy import select, delete
 from ortools.sat.python import cp_model
 
-HOURS_IN_TWO_WEEKS = 24 * 14
-SLEEP_START, SLEEP_END = 0, 7  # hard block 00:00-06:59
+from app.models.schedule import CalendarEvent, FlexibleObligation
+
+logger = logging.getLogger(__name__)
+
+# ════════════════════════════════════════════════════════════════════════════
+# Public API
+# ════════════════════════════════════════════════════════════════════════════
+
+def update_schedule(db: Session, *, student_id: int) -> None:
+    """Re‑optimise a student’s calendar after any change."""
+    logger.info("Re‑scheduling calendar for student %s", student_id)
+
+    events = db.scalars(select(CalendarEvent).where(CalendarEvent.student_id == student_id)).all()
+    fixed_events, old_flex_events = _partition_events(events)
+
+    # ── Unscheduled obligations (new)
+    scheduled_ids = {e.flexible_obligation_id for e in old_flex_events if e.flexible_obligation_id}
+    unscheduled = db.scalars(
+        select(FlexibleObligation)
+        .where(
+            FlexibleObligation.student_id == student_id,
+            FlexibleObligation.obligation_id.not_in(scheduled_ids),
+        )
+    ).all()
+
+    # ── Map of all flex obligation rows we’ll need (for windows/session hrs)
+    needed_ids = scheduled_ids.union(o.obligation_id for o in unscheduled)
+    flex_rows_map = {row.obligation_id: row for row in db.scalars(
+        select(FlexibleObligation).where(FlexibleObligation.obligation_id.in_(needed_ids))
+    ).all()}
+
+    fixed_payload = [_ce_to_dict(e) for e in fixed_events]
+    prev_tasks   = _regroup_old_flex(old_flex_events, flex_rows_map)
+    new_tasks    = [_flex_to_task(o) for o in unscheduled]
+    flex_payload = prev_tasks + new_tasks
+
+    if not flex_payload:
+        return
+
+    sessions = _solve_with_or_tools(fixed_payload, flex_payload)
+    _replace_flexible_events(db, student_id, old_flex_events, sessions)
+    logger.info("Inserted %d sessions", len(sessions))
+
+# ════════════════════════════════════════════════════════════════════════════
+# Helpers
+# ════════════════════════════════════════════════════════════════════════════
+
+def _ce_to_dict(ev: CalendarEvent) -> Dict[str, Any]:
+    return {"date": ev.date, "start": ev.start_time, "end": ev.end_time}
 
 
-# ---------------------------------------------------------------------------
+def _flex_to_task(ob: FlexibleObligation) -> Dict[str, Any]:
+    c = ob.constraints or {}
+    return {
+        "id": ob.obligation_id,
+        "total_hours": float(ob.weekly_target_hours),
+        "session_hours": c.get("session_hours", 1),
+        "start_date": ob.start_date,
+        "end_date": ob.end_date,
+        "priority": ob.priority or 3,
+    }
 
-def _slots(start: datetime, hours: int = HOURS_IN_TWO_WEEKS) -> List[datetime]:
-    return [start + timedelta(hours=i) for i in range(hours)]
+
+def _partition_events(evts: List[CalendarEvent]) -> Tuple[List[CalendarEvent], List[CalendarEvent]]:
+    fixed, flex = [], []
+    for e in evts:
+        if e.event_type == "fixed_obligation":
+            fixed.append(e)
+        elif e.event_type in {"flexible_obligation", "study_session"}:
+            flex.append(e)
+    return fixed, flex
 
 
-# ---------------------------------------------------------------------------
+def _regroup_old_flex(events: List[CalendarEvent], flex_map: Dict[int, FlexibleObligation]) -> List[Dict[str, Any]]:
+    grouped: Dict[int, Dict[str, Any]] = {}
+    for ev in events:
+        fid = ev.flexible_obligation_id
+        if not fid:
+            continue
+        base = flex_map.get(fid)
+        session_hours = (base.constraints or {}).get("session_hours", 1) if base else 1
+        t = grouped.setdefault(fid, {
+            "id": fid,
+            "total_hours": 0.0,
+            "session_hours": session_hours,
+            "start_date": base.start_date if base else None,
+            "end_date": base.end_date if base else None,
+            "priority": base.priority if base else 3,
+        })
+        t["total_hours"] += (ev.end_time - ev.start_time).seconds / 3600
+    return list(grouped.values())
 
-def optimize_schedule(
-    *,
-    week_start: datetime,
-    fixed_tasks: List[Dict],
-    flexible_tasks: List[Dict],
-    academic_tasks: List[Dict],
-    preferences: Dict | None = None,
-) -> List[Dict]:
+
+def _replace_flexible_events(db: Session, student_id: int, old_flex: List[CalendarEvent], new: List[Dict[str, Any]]):
+    if old_flex:
+        db.execute(delete(CalendarEvent).where(CalendarEvent.event_id.in_([e.event_id for e in old_flex])))
+
+    db.add_all([
+        CalendarEvent(
+            student_id=student_id,
+            event_type="flexible_obligation",
+            flexible_obligation_id=s["flexible_obligation_id"],
+            date=s["date"],
+            start_time=s["start"],
+            end_time=s["end"],
+            priority=s.get("priority", 3),
+            status="scheduled",
+        )
+        for s in new
+    ])
+    db.commit()
+
+# ════════════════════════════════════════════════════════════════════════════
+# OR‑Tools solver (global NoOverlap)
+# ════════════════════════════════════════════════════════════════════════════
+
+def _solve_with_or_tools(fixed_events: List[Dict[str, Any]], flex_tasks: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Schedule with a *night‑time preference*:
+
+    * 23:00‑08:00 slots are **disfavoured**. We try a first pass where they are
+      completely forbidden. If the model is infeasible we relax the constraint
+      and allow night placement.
     """
-    Return list of calendar-event dicts (empty if infeasible).
+    import math
 
-    Raises ValueError on obviously bad input (≤0 hours, etc.).
-    """
-    
-    # Print detailed input information
-    print(f"optimize_schedule called with week_start={week_start}")
-    print(f"fixed_tasks count: {len(fixed_tasks)}")
-    print(f"flexible_tasks count: {len(flexible_tasks)}")
-    print(f"academic_tasks count: {len(academic_tasks)}")
-
-    # 0 ── Basic validation --------------------------------------------------
-    if not (fixed_tasks or flexible_tasks or academic_tasks):
-        print("No tasks supplied → nothing to schedule")
-        return []
-
-    # Validate inputs more carefully to avoid cryptic errors
-    for i, t in enumerate(flexible_tasks):
-        print(f"Checking flexible task {i}: {t.get('id', 'unknown')}")
-        if 'session_hours' not in t or 'total_hours' not in t:
-            print(f"Warning: Task {t.get('id', 'unknown')} missing hours fields")
-            # Assign default values rather than failing
-            t['session_hours'] = t.get('session_hours', 1)
-            t['total_hours'] = t.get('total_hours', 1)
-            
-        if not isinstance(t.get('session_hours', 0), (int, float)) or not isinstance(t.get('total_hours', 0), (int, float)):
-            print(f"Warning: Task {t.get('id', 'unknown')} has non-numeric hours")
-            # Convert to numeric
-            try:
-                t['session_hours'] = float(t.get('session_hours', 1))
-                t['total_hours'] = float(t.get('total_hours', 1))
-            except (ValueError, TypeError):
-                t['session_hours'] = 1
-                t['total_hours'] = 1
-                
-        # Ensure positive values
-        if t.get('session_hours', 0) <= 0:
-            print(f"Warning: Task {t.get('id', 'unknown')} has invalid session_hours, setting to 1")
-            t['session_hours'] = 1
-        if t.get('total_hours', 0) <= 0:
-            print(f"Warning: Task {t.get('id', 'unknown')} has invalid total_hours, setting to 1")
-            t['total_hours'] = 1
-    
-    # Do similar validation for academic tasks
-    for i, t in enumerate(academic_tasks):
-        print(f"Checking academic task {i}: {t.get('id', 'unknown')}")
-        if 'session_hours' not in t or 'total_hours' not in t:
-            print(f"Warning: Academic task {t.get('id', 'unknown')} missing hours fields")
-            t['session_hours'] = t.get('session_hours', 1)
-            t['total_hours'] = t.get('total_hours', 1)
-            
-        if not isinstance(t.get('session_hours', 0), (int, float)) or not isinstance(t.get('total_hours', 0), (int, float)):
-            print(f"Warning: Academic task {t.get('id', 'unknown')} has non-numeric hours")
-            try:
-                t['session_hours'] = float(t.get('session_hours', 1))
-                t['total_hours'] = float(t.get('total_hours', 1))
-            except (ValueError, TypeError):
-                t['session_hours'] = 1
-                t['total_hours'] = 1
-                
-        # Ensure positive values
-        if t.get('session_hours', 0) <= 0:
-            print(f"Warning: Academic task {t.get('id', 'unknown')} has invalid session_hours, setting to 1")
-            t['session_hours'] = 1
-        if t.get('total_hours', 0) <= 0:
-            print(f"Warning: Academic task {t.get('id', 'unknown')} has invalid total_hours, setting to 1")
-            t['total_hours'] = 1
-
-    prefs = preferences or {}
-    prefs.setdefault("max_hours_per_day", 6)
-    prefs.setdefault("min_gap_between_sessions", 1)
-
-    # -- expand academic_tasks → study sessions
-    study_sessions: List[Dict] = []
-    for task in academic_tasks:
-        n = max(1, task["total_hours"] // task["session_hours"])
-        for i in range(n):
-            study_sessions.append(
-                {
-                    "id": f"{task['id']}_s{i}",
-                    "parent_task_id": task["id"],
-                    "total_hours": task["session_hours"],
-                    "session_hours": task["session_hours"],
-                    "deadline": task["deadline"],
-                    "priority": task.get("priority", 8),
-                    "dependencies": task.get("dependencies", []),
-                    "is_study": True,
-                }
-            )
-    
-    # Filter flexible tasks based on their start_date
-    # If a task has a start_date in the future, respect it
-    filtered_flex_tasks = []
-    for task in flexible_tasks:
-        # If task has a deadline (end_date), ensure it's after week_start
-        # But don't skip tasks that haven't ended yet
-        if task.get("deadline"):
-            # Convert deadline to datetime if it's a string
-            deadline = task["deadline"]
-            if isinstance(deadline, str):
-                try:
-                    # Don't import datetime here, it's already imported at the top
-                    deadline = datetime.fromisoformat(deadline.replace('Z', '+00:00'))
-                    task["deadline"] = deadline  # Update with converted value
-                except Exception as e:
-                    print(f"Error converting deadline string to datetime: {e}")
-                    deadline = None  # Don't use invalid deadline for comparison
-            
-            # Now compare with week_start only if it's a valid datetime
-            if isinstance(deadline, datetime) and deadline < week_start:
-                print(f"Skipping expired task {task['id']} with deadline {deadline}")
-                continue
-        
-        # Always include tasks for scheduling
-        filtered_flex_tasks.append(task)
-        print(f"Including task {task['id']} for scheduling")
-    
-    # Don't proceed if no flexible tasks were found
-    if not filtered_flex_tasks and flexible_tasks:
-        print("WARNING: All flexible tasks were filtered out! Check filtering logic.")
-    
-    flex_pool = filtered_flex_tasks + study_sessions
-
-    # 1 ── Build CP-SAT model ----------------------------------------------
     model = cp_model.CpModel()
-    solver = cp_model.CpSolver()
-    solver.parameters.max_time_in_seconds = 10
 
-    slots = _slots(week_start)
-    blocked_hard = set()
+    now = datetime.utcnow()
+    earliest_start_raw = min([now] + [t["start_date"] for t in flex_tasks if t["start_date"]] + [f["start"] for f in fixed_events])
+    earliest_start = earliest_start_raw.replace(hour=0, minute=0, second=0, microsecond=0)
+    latest_end  = max([now] + [t["end_date"] for t in flex_tasks if t["end_date"]] + [f["end"] for f in fixed_events])
+    horizon_end = latest_end.replace(hour=23, minute=59)
 
-    for ev in fixed_tasks:
-        for idx, slot in enumerate(slots):
-            if ev["start"] <= slot < ev["end"]:
-                blocked_hard.add(idx)
-    for idx, slot in enumerate(slots):
-        if SLEEP_START <= slot.hour < SLEEP_END:
-            blocked_hard.add(idx)
+    slot_min = 30
+    n_slots = int((horizon_end - earliest_start).total_seconds() / 60 / slot_min)
+    if n_slots <= 0:
+        raise ValueError("Empty horizon")
 
-    task_vars: Dict[str, List[cp_model.IntVar]] = {}
+    def idx(dt: datetime) -> int:
+        return int((dt - earliest_start).total_seconds() / 60 / slot_min)
 
-    # 1b ── decision vars
-    for task in flex_pool:
-        vars_: List[cp_model.IntVar] = []
-        n_sessions = int(max(1, task["total_hours"] // task["session_hours"]))
-        for s in range(n_sessions):
-            v = model.NewIntVar(0, len(slots) - 1, f"{task['id']}_{s}")
-            model.AddForbiddenAssignments([v], [[b] for b in blocked_hard])
-            vars_.append(v)
-        task_vars[task["id"]] = vars_
+    # Helper to compute slot -> datetime
+    def slot_time(i: int) -> datetime:
+        return earliest_start + timedelta(minutes=i * slot_min)
 
-    # spacing between sessions of same task
-    gap = prefs["min_gap_between_sessions"]
-    for task in flex_pool:
-        ses = task_vars[task["id"]]
-        for i in range(1, len(ses)):
-            model.Add(ses[i] >= ses[i - 1] + gap)
+    # ------------------------------------------------------------------
+    # Build intervals (fixed + flex) and a list of candidate models
+    # ------------------------------------------------------------------
+    def build_model(block_night: bool):
+        m = cp_model.CpModel()
+        intervals = []
+        session_records = []
 
-    # dependencies
-    for task in flex_pool:
-        for dep in task.get("dependencies", []):
-            if dep in task_vars:
-                for t_var in task_vars[task["id"]]:
-                    for d_var in task_vars[dep]:
-                        model.Add(t_var >= d_var + 1)
+        # Fixed intervals ------------------------------------------------
+        for f in fixed_events:
+            s = idx(f["start"])
+            dur = math.ceil((f["end"] - f["start"]).total_seconds() / 60 / slot_min)
+            intervals.append(m.NewFixedSizeIntervalVar(s, dur, f"fixed_{s}"))
 
-    # 1e ── soft daily cap
-    daily_penalties = []
-    cap = prefs["max_hours_per_day"]
-    days = len(slots) // 24
+        # Night slots ----------------------------------------------------
+        night_block = set()
+        if block_night:
+            for s in range(n_slots):
+                t = slot_time(s)
+                if t.hour >= 23 or t.hour < 8:
+                    night_block.add(s)
 
-    for d in range(days):
-        ind_vars: List[cp_model.BoolVar] = []
-        start_idx, end_idx = d * 24, (d + 1) * 24 - 1
-        for task in flex_pool:
-            for v in task_vars[task["id"]]:
-                ind = model.NewBoolVar(f"d{d}_{v.Name()}")
-                model.Add(v >= start_idx).OnlyEnforceIf(ind)
-                model.Add(v <= end_idx).OnlyEnforceIf(ind)
-                model.Add(v < start_idx).OnlyEnforceIf(ind.Not())
-                ind_vars.append(ind)
+        # Flexible sessions ---------------------------------------------
+        for task in flex_tasks:
+            dur_slots = math.ceil(task["session_hours"] * 60 / slot_min)
+            n_sess = max(1, int(math.ceil(task["total_hours"] / task["session_hours"])))
 
-        load = model.NewIntVar(0, len(ind_vars), f"load_d{d}")
-        excess = model.NewIntVar(0, len(ind_vars), f"excess_d{d}")
-        model.Add(load == sum(ind_vars))
-        model.Add(excess >= load - cap)
-        model.Add(excess >= 0)
-        daily_penalties.append(excess)
+            window_start = task["start_date"] or earliest_start
+            window_end   = (task["end_date"] or horizon_end) - timedelta(minutes=dur_slots * slot_min)
+            low, high = max(0, idx(window_start)), min(n_slots - dur_slots, idx(window_end))
+            if high < low:
+                raise RuntimeError(f"No window for task {task['id']}")
 
-    # 2 ── objective
-    model.Minimize(
-        100 * sum(daily_penalties)
-        + sum(var for vars_ in task_vars.values() for var in vars_)
-    )
+            for i in range(n_sess):
+                start = m.NewIntVar(low, high, f"s_{task['id']}_{i}")
+                if block_night and night_block:
+                    m.AddForbiddenAssignments([start], [[b] for b in night_block])
+                ivar  = m.NewIntervalVar(start, dur_slots, start + dur_slots, f"iv_{task['id']}_{i}")
+                intervals.append(ivar)
+                session_records.append((start, dur_slots, task))
 
-    # 3 ── solve
-    status = solver.Solve(model)
-    if status not in (cp_model.OPTIMAL, cp_model.FEASIBLE):
-        print("Solver returned infeasible / unknown")
-        return []
+        m.AddNoOverlap(intervals)
 
-    # 4 ── build result list
-    events: List[Dict] = [
-        {
-            "id": ev["id"],
-            "start_time": ev["start"],
-            "end_time": ev["end"],
-            "type": "fixed_obligation",
-        }
-        for ev in fixed_tasks
-    ]
+        makespan = m.NewIntVar(0, n_slots, "makespan")
+        for s, d, _ in session_records:
+            m.Add(makespan >= s + d)
+        m.Minimize(makespan)
 
-    for task in flex_pool:
-        dur = timedelta(hours=task["session_hours"])
-        for idx, v in enumerate(task_vars[task["id"]]):
-            st = slots[solver.Value(v)]
-            events.append(
-                {
-                    "id": f"{task['id']}_{idx}",
-                    "start_time": st,
-                    "end_time": st + dur,
-                    "type": "study_session" if task.get("is_study") else "flexible_obligation",
-                    "parent_task_id": task.get("parent_task_id"),
-                }
-            )
+        return m, session_records
 
-    return events
+    # First attempt: night blocked --------------------------------------
+    for attempt, allow_night in enumerate([False, True], start=1):
+        mdl, rec = build_model(block_night=not allow_night)
+        solver = cp_model.CpSolver(); solver.parameters.max_time_in_seconds = 10
+        result = solver.Solve(mdl)
+        if result in (cp_model.OPTIMAL, cp_model.FEASIBLE):
+            session_records = rec
+            break
+        if allow_night:
+            raise RuntimeError("No feasible schedule, even with night hours allowed")
+
+    # Build output ------------------------------------------------------
+    outs = []
+    for s, d, t in session_records:
+        start_idx = solver.Value(s)
+        start_dt  = earliest_start + timedelta(minutes=start_idx * slot_min)
+        end_dt    = start_dt + timedelta(minutes=d * slot_min)
+        outs.append({
+            "flexible_obligation_id": t["id"],
+            "priority": t.get("priority", 3),
+            "date": start_dt.replace(hour=0, minute=0, second=0, microsecond=0),
+            "start": start_dt,
+            "end": end_dt,
+        })
+    return outs

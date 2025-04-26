@@ -45,7 +45,7 @@ class FlexibleObligation(Base):
     
     obligation_id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     student_id = Column(Integer, ForeignKey("students.student_id", ondelete="CASCADE"))
-    name = Column(String, nullable=False)
+    name = Column(String, nullable=True)
     description = Column(Text, nullable=True)
     weekly_target_hours = Column(NUMERIC, nullable=False)
     constraints = Column(JSON)

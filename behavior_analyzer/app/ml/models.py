@@ -132,7 +132,7 @@ class BehaviorModel:
     
     def update_profile(self, student_id: int, force_update: bool = False) -> ProductivityProfileData:
         """
-        Updates the productivity profile with latest behavior data
+        Updates the productivity profile with latest behavior data and persists to database
         """
         profile = self.get_or_create_profile(student_id)
 
@@ -160,6 +160,47 @@ class BehaviorModel:
             retention_rates=retention_rates,
             last_updated=datetime.datetime.now(datetime.timezone.utc)
         )
+        
+        # Save to database if we have a db session
+        if hasattr(self, 'db'):
+            # Find existing profile in database
+            db_profile = self.db.query(ProductivityProfile).filter(
+                ProductivityProfile.student_id == student_id
+            ).first()
+            
+            if db_profile:
+                # Update existing profile
+                db_profile.slot_weights = slot_efficiencies
+                db_profile.peak_windows = peak_windows
+                db_profile.max_continuous_minutes = session_params["max_continuous_minutes"]
+                db_profile.ideal_break_minutes = session_params["ideal_break_minutes"]
+                db_profile.efficiency_decay_rate = session_params["efficiency_decay_rate"]
+                db_profile.fatigue_factor = fatigue_params["fatigue_factor"]
+                db_profile.recovery_factor = fatigue_params["recovery_factor"]
+                db_profile.day_multipliers = adjustment_factors["day_multipliers"]
+                db_profile.soft_obligation_buffer = adjustment_factors["soft_obligation_buffer"]
+                db_profile.retention_rates = retention_rates
+                db_profile.last_updated = datetime.datetime.now(datetime.timezone.utc)
+            else:
+                # Create new profile
+                new_db_profile = ProductivityProfile(
+                    student_id=student_id,
+                    slot_weights=slot_efficiencies,
+                    peak_windows=peak_windows,
+                    max_continuous_minutes=session_params["max_continuous_minutes"],
+                    ideal_break_minutes=session_params["ideal_break_minutes"],
+                    efficiency_decay_rate=session_params["efficiency_decay_rate"],
+                    fatigue_factor=fatigue_params["fatigue_factor"],
+                    recovery_factor=fatigue_params["recovery_factor"],
+                    day_multipliers=adjustment_factors["day_multipliers"],
+                    soft_obligation_buffer=adjustment_factors["soft_obligation_buffer"],
+                    retention_rates=retention_rates,
+                    last_updated=datetime.datetime.now(datetime.timezone.utc)
+                )
+                self.db.add(new_db_profile)
+            
+            # Commit changes
+            self.db.commit()
         
         self.profile = updated_profile
         return updated_profile
@@ -259,9 +300,9 @@ class BehaviorModel:
 
     def initialize_cold_start(self, student_id: int, preferences: Dict = None) -> ProductivityProfileData:
         """
-        Initializes a profile for a new student using defaults or cluster priors
+        Initializes a productivity profile for a new student with cold start preferences and stores in the database
         """
-        # Create a basic profile
+        # Get the existing profile or create a new default one
         profile = self.get_or_create_profile(student_id)
         
         # Default slot weights based on common patterns
@@ -370,5 +411,47 @@ class BehaviorModel:
             retention_rates=self.feature_extractor.compute_retention_indicators(student_id),
             last_updated=datetime.datetime.now(datetime.timezone.utc)
         )
+
+        self.profile = new_profile
+        
+        # Only add this block at the end - store to database
+        if hasattr(self, 'db'):
+            # Convert to database model
+            db_profile = self.db.query(ProductivityProfile).filter(
+                ProductivityProfile.student_id == student_id
+            ).first()
+            
+            if db_profile:
+                # Update existing record
+                db_profile.slot_weights = new_profile.slot_weights
+                db_profile.peak_windows = new_profile.peak_windows
+                db_profile.max_continuous_minutes = new_profile.max_continuous_minutes
+                db_profile.ideal_break_minutes = new_profile.ideal_break_minutes
+                db_profile.efficiency_decay_rate = new_profile.efficiency_decay_rate
+                db_profile.fatigue_factor = new_profile.fatigue_factor
+                db_profile.recovery_factor = new_profile.recovery_factor
+                db_profile.day_multipliers = new_profile.day_multipliers
+                db_profile.soft_obligation_buffer = new_profile.soft_obligation_buffer
+                db_profile.retention_rates = new_profile.retention_rates
+                db_profile.last_updated = new_profile.last_updated
+            else:
+                # Create new record
+                db_profile = ProductivityProfile(
+                    student_id=student_id,
+                    slot_weights=new_profile.slot_weights,
+                    peak_windows=new_profile.peak_windows,
+                    max_continuous_minutes=new_profile.max_continuous_minutes,
+                    ideal_break_minutes=new_profile.ideal_break_minutes,
+                    efficiency_decay_rate=new_profile.efficiency_decay_rate,
+                    fatigue_factor=new_profile.fatigue_factor,
+                    recovery_factor=new_profile.recovery_factor,
+                    day_multipliers=new_profile.day_multipliers,
+                    soft_obligation_buffer=new_profile.soft_obligation_buffer,
+                    retention_rates=new_profile.retention_rates,
+                    last_updated=new_profile.last_updated
+                )
+                self.db.add(db_profile)
+                
+            self.db.commit()
         
         return new_profile

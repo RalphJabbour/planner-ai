@@ -7,8 +7,10 @@ from app.database import get_db
 from app.models.student import Student
 from app.models.course import Course, StudentCourse
 from app.auth.token import get_current_student
-from app.routers.tasks import create_fixed_obligation, FixedObligationCreate
+from app.routers.tasks import create_fixed_obligation, FixedObligationCreate, delete_fixed_obligation
 import datetime
+from app.or_tools.service import update_schedule  # Import the update_schedule function
+from app.models.schedule import FixedObligation
 
 router = APIRouter(prefix="/courses", tags=["courses"])
 
@@ -62,7 +64,7 @@ def get_start_end_date(semester):
     return start_date, end_date
         
 
-@router.get("")
+@router.get("", operation_id="get_courses")
 async def get_courses(
     semester: Optional[str] = 'Summer 2024-2025',
     current_student: Student = Depends(get_current_student),
@@ -82,7 +84,7 @@ async def get_courses(
     return courses
 
 
-@router.post("/register")
+@router.post("/register", operation_id="register_course")
 async def register_course(
     registration: CourseRegistration,
     current_student: Student = Depends(get_current_student),
@@ -111,8 +113,7 @@ async def register_course(
     
     db.add(new_registration)
     db.commit()
-    logging.error("HIiiiiiiiiIiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii")
-    # timetable = {"times": [{"days": "M", "start_time": "0900", "end_time": "1600", "building": ".", "room": "."}, {"days": "WF", "start_time": "0900", "end_time": "1200", "building": ".", "room": "."}]}
+    
     try:
         recurrences = course.timetable.get("times", [])
         for recurrence in recurrences:
@@ -122,14 +123,36 @@ async def register_course(
             if not start_time or not end_time:
                 return {"message": "Invalid time format"}
             
+            # Process each day string correctly
+            # For example, "MWF" should be processed as individual chars
+            days_string = recurrence.get("days", "")
+            
+            # Fix for course days processing - handle each character individually
+            days_of_week = []
+            for char in days_string:
+                if char == 'M':
+                    days_of_week.append("Monday")
+                elif char == 'T':
+                    days_of_week.append("Tuesday")
+                elif char == 'W':
+                    days_of_week.append("Wednesday")
+                elif char == 'R':
+                    days_of_week.append("Thursday")
+                elif char == 'F':
+                    days_of_week.append("Friday")
+                elif char == 'S':
+                    days_of_week.append("Saturday")
+                elif char == 'U':
+                    days_of_week.append("Sunday")
+            
             # Fix: Properly await the coroutine
             await create_fixed_obligation(
                 FixedObligationCreate(
                     name=course.course_name,
-                    description=course.course_code + " Lecture", # Added space after course code
+                    description=course.course_code + " Lecture", 
                     start_time=start_time,
                     end_time=end_time,
-                    days_of_week=get_days_array(recurrence.get("days", [])),
+                    days_of_week=days_of_week,
                     start_date=start_date,
                     end_date=end_date,
                     recurrence="weekly",
@@ -138,13 +161,46 @@ async def register_course(
                 current_student=current_student,
                 db=db,
             )
+            #for the newly created fixed obligation, we need to set the course_id
+            #to the course_id of the course that was registered
+            fixed_obligation = db.query(FixedObligation).filter(
+                FixedObligation.student_id == current_student.student_id,
+                FixedObligation.start_time == start_time,
+                FixedObligation.end_time == end_time,
+                FixedObligation.start_date == start_date,
+                FixedObligation.end_date == end_date,
+            ).first()
+            if fixed_obligation:
+                fixed_obligation.course_id = course.course_id
+                db.commit()
+                db.refresh(fixed_obligation)
+                logging.info(f"Fixed obligation created: {fixed_obligation.to_dict()}")
+        #TODO:
+        # Call update_schedule to optimize the calendar
+        # Temporarily disabled
+        # updated_events = update_schedule({"student_id": current_student.student_id}, db)
+        
+        # # If the course has a start date in the future, include it
+        # start_date, end_date = get_start_end_date(course.semester)
+        
+        # # Pass the start_date to ensure the optimizer respects it
+        # optimization_payload = {
+        #     "student_id": current_student.student_id
+        # }
+        
+        # # If a future start date is specified, include it in the payload
+        # if start_date and start_date > datetime.datetime.now():
+        #     optimization_payload["week_start"] = start_date
+            
+        # updated_events = update_schedule(optimization_payload, db)
+        # return {"message": "Course registered successfully", "updated_events": updated_events}
     except Exception as e:
         logging.error(f"Error creating fixed obligation: {e}")
         raise HTTPException(status_code=500, detail="Error creating fixed obligation")
     
     return {"message": "Course registered successfully"}
 
-@router.get("/registered")
+@router.get("/registered", operation_id="get_registered_courses")
 async def get_registered_courses(
     current_student: Student = Depends(get_current_student),
     db: Session = Depends(get_db)
@@ -174,7 +230,7 @@ async def get_registered_courses(
     
     return {"courses": courses_list}
 
-@router.delete("/unregister")
+@router.delete("/unregister", operation_id="unregister_course")
 async def unregister_course(
     course_id: int,
     current_student: Student = Depends(get_current_student),
@@ -190,6 +246,18 @@ async def unregister_course(
     if not registration:
         raise HTTPException(status_code=404, detail="Registration not found")
     
+    try:
+        # Delete the fixed obligation associated with the course
+        fixed_obligation = db.query(FixedObligation).filter(
+            FixedObligation.course_id == course_id,
+        ).first()
+        
+        if fixed_obligation:
+            await delete_fixed_obligation(fixed_obligation.obligation_id, current_student, db)
+    except Exception as e:
+        logging.error(f"Error deleting fixed obligation: {e}")
+        raise HTTPException(status_code=500, detail="Error deleting fixed obligation")
+
     db.delete(registration)
     db.commit()
     

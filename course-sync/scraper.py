@@ -142,7 +142,7 @@ def scrape_all_courses() -> pd.DataFrame:
         pandas.DataFrame: DataFrame containing all course information
     """
     all_courses = []
-    demo_letters = ['A', 'B', 'M', 'E']
+    demo_letters = ['E']
     # for letter in string.ascii_uppercase:
     for letter in demo_letters:
         try:

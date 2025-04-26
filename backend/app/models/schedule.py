@@ -6,17 +6,22 @@ import datetime
 class FixedObligation(Base):
     __tablename__ = "fixed_obligations"
 
-    obligation_id = Column(Integer, primary_key=True, index=True)
+    obligation_id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     student_id = Column(Integer, ForeignKey("students.student_id", ondelete="CASCADE"))
     name = Column(String, nullable=False)
     description = Column(String, nullable=True)
+
     start_time = Column(TIME, nullable=False)
     end_time = Column(TIME, nullable=False)
     days_of_week = Column(ARRAY(String), nullable=False)
     start_date = Column(DATE, nullable=False)
     end_date = Column(DATE, nullable=True)
     recurrence = Column(String, nullable=True)
+
+    course_id = Column(Integer, ForeignKey("courses.course_id", ondelete="cascade"), nullable=True)
+
     priority = Column(Integer, nullable=True)
+    created_at = Column(TIMESTAMP, server_default=text("CURRENT_TIMESTAMP"))
 
     def to_dict(self):
         return {
@@ -30,15 +35,18 @@ class FixedObligation(Base):
             "start_date": self.start_date.isoformat(),
             "end_date": self.end_date.isoformat() if self.end_date else None,
             "recurrence": self.recurrence,
+            "course_id": self.course_id,
             "priority": self.priority,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
         }
 
 class FlexibleObligation(Base):
     __tablename__ = "flexible_obligations"
     
-    obligation_id = Column(Integer, primary_key=True, index=True)
+    obligation_id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     student_id = Column(Integer, ForeignKey("students.student_id", ondelete="CASCADE"))
-    description = Column(Text, nullable=False)
+    name = Column(String, nullable=False)
+    description = Column(Text, nullable=True)
     weekly_target_hours = Column(NUMERIC, nullable=False)
     constraints = Column(JSON)
     start_date = Column(TIMESTAMP)
@@ -59,6 +67,7 @@ class FlexibleObligation(Base):
             "created_at": self.created_at.isoformat() if self.created_at else None,
         }
 
+# TODO: we still have not used this table
 class PersonalizedStudySession(Base):
     __tablename__ = "study_sessions"
     
@@ -93,6 +102,7 @@ class PersonalizedStudySession(Base):
             "created_at": self.created_at.isoformat() if self.created_at else None,
         }
 
+#TODO: we still have not used this table
 class TaskProgress(Base): # will be used to be able to better predict the needed hours for an academic task for a specific student
     __tablename__ = "task_progress"
     
@@ -107,17 +117,18 @@ class TaskProgress(Base): # will be used to be able to better predict the needed
     proficiency_score = Column(NUMERIC)
 
     last_updated = Column(TIMESTAMP, default=datetime.datetime.utcnow)
-    
+
 class CalendarEvent(Base):
     __tablename__ = "calendar_events"
     
-    event_id = Column(Integer, primary_key=True, index=True)
+    event_id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     student_id = Column(Integer, ForeignKey("students.student_id", ondelete="CASCADE"))
     
-    event_type = Column(String(50)) # either 'fixed_obligation', 'flexible_obligation', 'study_session', or 'class'
+    event_type = Column(String(50)) # either 'fixed_obligation', 'flexible_obligation', 'study_session', or 'course_lecture'
     fixed_obligation_id = Column(Integer, ForeignKey("fixed_obligations.obligation_id", ondelete="SET NULL"), nullable=True)
     flexible_obligation_id = Column(Integer, ForeignKey("flexible_obligations.obligation_id", ondelete="SET NULL"), nullable=True)
     study_session_id = Column(Integer, ForeignKey("study_sessions.session_id", ondelete="SET NULL"), nullable=True)
+    course_id = Column(Integer, ForeignKey("courses.course_id", ondelete="SET NULL"), nullable=True)
     
     date = Column(TIMESTAMP, nullable=False)
     start_time = Column(TIMESTAMP, nullable=False)
@@ -128,10 +139,11 @@ class CalendarEvent(Base):
     created_at = Column(TIMESTAMP, server_default=text("CURRENT_TIMESTAMP"))
     
     __table_args__ = (
-        CheckConstraint("event_type IN ('class', 'study_session', 'fixed_obligation', 'flexible_obligation')"),
+        CheckConstraint("event_type IN ('course_lecture', 'study_session', 'fixed_obligation', 'flexible_obligation')"),
         CheckConstraint('priority BETWEEN 1 AND 5'),
     )
 
+#TODO: we still have not used this table
 class Notification(Base):
     __tablename__ = "notifications"
     

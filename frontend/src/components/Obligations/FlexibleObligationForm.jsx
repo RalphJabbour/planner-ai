@@ -8,6 +8,7 @@ const FlexibleObligationForm = () => {
   const navigate = useNavigate();
   
   const [formData, setFormData] = useState({
+    name: "",
     description: "",
     weekly_target_hours: 5,
     start_date: "", // New field
@@ -58,6 +59,7 @@ const FlexibleObligationForm = () => {
       const obligation = await response.json();
       
       setFormData({
+        name: obligation.name || "",
         description: obligation.description || "",
         weekly_target_hours: obligation.weekly_target_hours || 5,
         start_date: obligation.start_date || "", // New field
@@ -202,6 +204,15 @@ const FlexibleObligationForm = () => {
       
       <form onSubmit={handleSubmit} className="obligation-form">
         <div className="form-group">
+          <label htmlFor="name">Obligation Name</label>
+          <input
+            type="text"
+            id="name"
+            name="name"
+            value={formData.name}
+            onChange={handleInputChange}
+            required
+          />
           <label htmlFor="description">Description</label>
           <textarea
             id="description"

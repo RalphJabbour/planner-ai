@@ -11,7 +11,7 @@ from datetime import datetime, timedelta
 from app.models.academic import AcademicTask
 from app.models.course import Course, StudentCourse
 import logging
-from app.or_tools.service import update_schedule  # Import the update_schedule function
+from app.or_tools.optimizer import update_schedule  # Import the update_schedule function
 
 router = APIRouter(prefix="/tasks", tags=["tasks"])
 
@@ -231,35 +231,30 @@ async def create_fixed_obligation(
     db.refresh(new_obligation)
 
     logging.info("HIIIIIIIIIIIIIIIIIIIIIII")
-    # Create calendar events corresponding to the fixed obligation
     create_calendar_events_from_fixed(new_obligation, current_student, db)
+    # Create calendar events corresponding to the fixed obligation
+     # ── OR-Tools re-optimisation ───────────────────────────────────────────
+    try:
+        # Pass the start_date to ensure the optimizer respects it
+        optimization_payload = {
+            "student_id": current_student.student_id
+        }
+        
+        # If a future start date is specified, include it in the payload
+        if obligation.start_date and obligation.start_date > datetime.now():
+            optimization_payload["week_start"] = obligation.start_date
+            
+        updated_events = update_schedule(optimization_payload, db)
+    except Exception as e:
+        logging.error("Error updating schedule: %s", e)
+        raise HTTPException(500, "Error updating schedule")
+
     return {
         "message": "Fixed obligation created successfully",
         "fixed_obligation_id": new_obligation.obligation_id,
+        "updated_events": updated_events,
     }
 
-    #TODO: function call to or tools
-    #  # ── OR-Tools re-optimisation ───────────────────────────────────────────
-    # try:
-    #     # Pass the start_date to ensure the optimizer respects it
-    #     optimization_payload = {
-    #         "student_id": current_student.student_id
-    #     }
-        
-    #     # If a future start date is specified, include it in the payload
-    #     if obligation.start_date and obligation.start_date > datetime.now():
-    #         optimization_payload["week_start"] = obligation.start_date
-            
-    #     updated_events = update_schedule(optimization_payload, db)
-    # except Exception as e:
-    #     logging.error("Error updating schedule: %s", e)
-    #     raise HTTPException(500, "Error updating schedule")
-
-    # return {
-    #     "message": "Fixed obligation created successfully",
-    #     "fixed_obligation_id": new_obligation.obligation_id,
-    #     "updated_events": updated_events,
-    # }
 
 @router.get("/fixed/{obligation_id}", operation_id="get_fixed_obligation")
 async def get_fixed_obligation(
@@ -343,7 +338,6 @@ async def delete_fixed_obligation(
     """Delete a fixed obligation"""
     # Check if obligation exists and belongs to the student
 
-    logging.info("Deleting fixed obligation hihihihihihihihihihih")
     db_obligation = db.query(FixedObligation).filter(
         FixedObligation.obligation_id == obligation_id,
         FixedObligation.student_id == current_student.student_id
@@ -477,33 +471,34 @@ async def create_flexible_obligation(
     else:
         print("WARNING: Couldn't verify created obligation")
 
-    # # ── OR-Tools re-optimisation with start_date ────────────────────────
-    # try:
-    #     # Pass the start_date to ensure the optimizer respects it
-    #     optimization_payload = {
-    #         "student_id": current_student.student_id,
-    #         "newly_created_obligation_id": new_obligation.obligation_id
-    #     }
+    # ── OR-Tools re-optimisation with start_date ────────────────────────
+    try:
+        # Pass the start_date to ensure the optimizer respects it
+        optimization_payload = {
+            "student_id": current_student.student_id,
+            "newly_created_obligation_id": new_obligation.obligation_id
+        }
         
-    #     # If a future start date is specified, include it in the payload
-    #     # Make sure we convert datetime to string for JSON serialization if needed
-    #     if obligation.start_date and obligation.start_date > datetime.now():
-    #         # Convert datetime to string in ISO format if needed for JSON serialization
-    #         if hasattr(obligation.start_date, 'isoformat'):
-    #             optimization_payload["week_start"] = obligation.start_date
-    #         else:
-    #             # Already a string or other format
-    #             optimization_payload["week_start"] = obligation.start_date
+        # If a future start date is specified, include it in the payload
+        # Make sure we convert datetime to string for JSON serialization if needed
+        if obligation.start_date and obligation.start_date > datetime.now():
+            # Convert datetime to string in ISO format if needed for JSON serialization
+            if hasattr(obligation.start_date, 'isoformat'):
+                optimization_payload["week_start"] = obligation.start_date
+            else:
+                # Already a string or other format
+                optimization_payload["week_start"] = obligation.start_date
             
-    #     print(f"Calling update_schedule with payload: {optimization_payload}")
-    #     updated_events = update_schedule(optimization_payload, db)
-    #     print(f"update_schedule returned {len(updated_events)} events")
-    # except Exception as e:
-    #     logging.error("Error updating schedule: %s", e)
-    #     import traceback
-    #     error_details = traceback.format_exc()
-    #     logging.error(f"Flexible obligation schedule error: {error_details}")
-    #     raise HTTPException(500, f"Error updating schedule: {str(e)}")
+        print(f"Calling update_schedule with payload: {optimization_payload}")
+        updated_events = update_schedule(db, student_id=current_student.student_id)
+        if updated_events is not None:
+            print(f"update_schedule returned {len(updated_events)} events")
+    except Exception as e:
+        logging.error("Error updating schedule: %s", e)
+        import traceback
+        error_details = traceback.format_exc()
+        logging.error(f"Flexible obligation schedule error: {error_details}")
+        raise HTTPException(500, f"Error updating schedule: {str(e)}")
 
     
 
@@ -542,34 +537,35 @@ async def update_flexible_obligation(
     db.refresh(db_obligation)
     
     # TODO: function call to or tools
-    # # If schedule-related fields were updated, trigger a re-optimization
-    # if schedule_updated:
-    #     try:
-    #         # Pass the obligation_id to ensure the optimizer respects it
-    #         optimization_payload = {
-    #             "student_id": current_student.student_id,
-    #             "newly_created_obligation_id": obligation_id
-    #         }
+    # If schedule-related fields were updated, trigger a re-optimization
+    if schedule_updated:
+        try:
+            # Pass the obligation_id to ensure the optimizer respects it
+            optimization_payload = {
+                "student_id": current_student.student_id,
+                "newly_created_obligation_id": obligation_id
+            }
             
-    #         # If a future start date is specified, include it in the payload
-    #         if db_obligation.start_date and db_obligation.start_date > datetime.now():
-    #             optimization_payload["week_start"] = db_obligation.start_date
+            # If a future start date is specified, include it in the payload
+            if db_obligation.start_date and db_obligation.start_date > datetime.now():
+                optimization_payload["week_start"] = db_obligation.start_date
                 
-    #         print(f"Calling update_schedule with payload: {optimization_payload}")
-    #         updated_events = update_schedule(optimization_payload, db)
-    #         print(f"update_schedule returned {len(updated_events)} events")
+            print(f"Calling update_schedule with payload: {optimization_payload}")
+            updated_events = update_schedule(db, student_id=current_student.student_id)
+            if updated_events is not None:
+                print(f"update_schedule returned {len(updated_events)} events")
             
-    #         return {
-    #             "message": "Flexible obligation updated successfully",
-    #             "flexible_obligation_id": obligation_id,
-    #             "updated_events": updated_events
-    #         }
-    #     except Exception as e:
-    #         logging.error("Error updating schedule: %s", e)
-    #         import traceback
-    #         error_details = traceback.format_exc()
-    #         logging.error(f"Flexible obligation schedule error: {error_details}")
-    #         # Don't fail the whole request, just return the updated obligation without events
+            return {
+                "message": "Flexible obligation updated successfully",
+                "flexible_obligation_id": obligation_id,
+                "updated_events": updated_events
+            }
+        except Exception as e:
+            logging.error("Error updating schedule: %s", e)
+            import traceback
+            error_details = traceback.format_exc()
+            logging.error(f"Flexible obligation schedule error: {error_details}")
+            # Don't fail the whole request, just return the updated obligation without events
     
     return db_obligation
 

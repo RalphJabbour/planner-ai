@@ -1,15 +1,14 @@
-version: "3.8"
+version: '3.8'
 
 services:
   frontend:
     build: ./frontend
     ports:
-      - "3000:80"
+      - '3000:80'
     depends_on:
       - backend
 
   backend:
-    # Replace with your actual backend image/build info
     build: ./backend
     ports:
       - "8000:8000"
@@ -17,8 +16,8 @@ services:
       - ./backend/.env
     depends_on:
       - db
-  
-  # mcp-server:
+
+    # mcp-server:
   #   build: 
   #     context: ./backend
   #     dockerfile: mcp.Dockerfile
@@ -28,16 +27,16 @@ services:
   #     - ./backend/.env
   #   depends_on:
   #     - db
-
-  # course-sync:
-  #   build: ./course-sync
-  #   restart: always
-  #   depends_on:
-  #     - db
-  #   env_file:
-  #     - .env
-  #   environment:
-  #     - SYNC_INTERVAL=86400
+  
+  course-sync:
+    build: ./course-sync
+    restart: always
+    depends_on:
+      - db
+    env_file:
+      - .env
+    environment:
+      - SYNC_INTERVAL=86400
 
   db:
     image: postgres:15
@@ -46,7 +45,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
-      - "5433:5432"
+      - '5433:5432'
 
 volumes:
   postgres_data:

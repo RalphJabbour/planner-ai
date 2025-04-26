@@ -45,9 +45,11 @@ async def get_survey_questions():
     return sample_questions
 
 @router.post("/survey-answers")
-async def submit_survey_answers(answers: SurveyAnswers,
-                                current_student: Student = Depends(get_current_student),
-                                 db: Session = Depends(get_db)):
+async def submit_survey_answers(
+    answers: SurveyAnswers,
+    current_student: Student = Depends(get_current_student),
+    db: Session = Depends(get_db)
+):
     """
     Save the survey answers to the database.
     """

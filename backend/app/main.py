@@ -8,19 +8,18 @@ import os
 # Import database and models
 import app.models
 from app.database import engine, Base, get_db
+from app.routers import auth, survey, courses, user, tasks
+# from app.routers import chat
+import logging
+import os
+from sqlalchemy.orm import Session
 from app.models.student import Student
 from app.models.course import Course, StudentCourse
 from app.routers.auth import hash_password
-
-# Import routers
-from app.routers import auth, survey, courses, ai_assistant, user, academic, tasks
 from app.or_tools.main import or_tools_router
 
 # Create the FastAPI app instance
 app = FastAPI(title="Student Planner API")
-
-# Include the OR-Tools router
-app.include_router(or_tools_router, prefix="/api/or-tools")
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -47,7 +46,10 @@ app.include_router(survey.router, prefix="/api")
 app.include_router(courses.router, prefix="/api")
 app.include_router(tasks.router, prefix="/api")
 app.include_router(user.router, prefix="/api")
-# app.include_router(academic.router, prefix="/api")
+app.include_router(or_tools_router, prefix="/api/or-tools")
+
+
+# app.include_router(chat.router, prefix="/api")
 
 # app.include_router(ai_assistant.router, prefix="/api")
 

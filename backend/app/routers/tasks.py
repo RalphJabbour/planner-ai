@@ -11,7 +11,7 @@ from datetime import datetime, timedelta
 from app.models.academic import AcademicTask
 from app.models.course import Course, StudentCourse
 import logging
-from app.or_tools.service import update_schedule  # Import the update_schedule function
+from app.or_tools.optimizer import update_schedule  # Import the update_schedule function
 
 router = APIRouter(prefix="/tasks", tags=["tasks"])
 
@@ -208,7 +208,7 @@ async def create_fixed_obligation(
         if obligation.start_date and obligation.start_date > datetime.now():
             optimization_payload["week_start"] = obligation.start_date
             
-        updated_events = update_schedule(optimization_payload, db)
+        updated_events = update_schedule(db, student_id=current_student.student_id)
     except Exception as e:
         logging.error("Error updating schedule: %s", e)
         raise HTTPException(500, "Error updating schedule")
@@ -529,8 +529,9 @@ async def create_flexible_obligation(
                 optimization_payload["week_start"] = obligation.start_date
             
         print(f"Calling update_schedule with payload: {optimization_payload}")
-        updated_events = update_schedule(optimization_payload, db)
-        print(f"update_schedule returned {len(updated_events)} events")
+        updated_events = update_schedule(db, student_id=current_student.student_id)
+        if updated_events is not None:
+            print(f"update_schedule returned {len(updated_events)} events")
     except Exception as e:
         logging.error("Error updating schedule: %s", e)
         import traceback
@@ -593,8 +594,9 @@ async def update_flexible_obligation(
                 optimization_payload["week_start"] = db_obligation.start_date
                 
             print(f"Calling update_schedule with payload: {optimization_payload}")
-            updated_events = update_schedule(optimization_payload, db)
-            print(f"update_schedule returned {len(updated_events)} events")
+            updated_events = update_schedule(db, student_id=current_student.student_id)
+            if updated_events is not None:
+                print(f"update_schedule returned {len(updated_events)} events")
             
             return {
                 "message": "Flexible obligation updated successfully",

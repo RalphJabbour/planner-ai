@@ -13,6 +13,7 @@ const typeColors = {
   'flexible_obligation': '#457b9d', // Blue
   'study_session': '#2a9d8f', // Teal
   'class': '#f4a261', // Orange
+  'academic_task': '#8338ec', // Purple for academic tasks
 };
 
 // Priority to opacity mapping (higher priority = more opacity)
@@ -26,13 +27,72 @@ const priorityOpacity = {
 
 const WeeklyCalendar = () => {
   const [calendarEvents, setCalendarEvents] = useState([]);
+  const [academicTasks, setAcademicTasks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [currentWeekStart, setCurrentWeekStart] = useState(startOfWeek(new Date()));
 
   useEffect(() => {
     fetchCalendarEvents();
+    fetchAcademicTasks();
   }, [currentWeekStart]);
+
+  const fetchAcademicTasks = async () => {
+    try {
+      const token = localStorage.getItem("accessToken");
+      
+      // Calculate the number of days to fetch (7 days)
+      const days = 7;
+      
+      const response = await fetch(
+        `/api/tasks/academic-tasks?days=${days}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          }
+        }
+      );
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch academic tasks: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      setAcademicTasks(data);
+    } catch (err) {
+      console.error("Failed to fetch academic tasks:", err);
+      // Don't set error state here to avoid disrupting the calendar display
+    }
+  };
+
+  const handleMarkTaskCompleted = async (taskId) => {
+    try {
+      const token = localStorage.getItem("accessToken");
+      
+      const response = await fetch(`/api/tasks/academic-tasks/${taskId}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ status: "completed" }),
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to update task: ${response.status}`);
+      }
+      
+      // Refresh academic tasks and calendar
+      fetchAcademicTasks();
+      fetchCalendarEvents();
+      
+      // Show success message
+      alert("Task marked as completed!");
+    } catch (err) {
+      console.error("Failed to mark task as completed:", err);
+      alert(`Error: ${err.message}`);
+    }
+  };
 
   const fetchCalendarEvents = async () => {
     try {
@@ -81,6 +141,7 @@ const WeeklyCalendar = () => {
   // Add a refresh function that calls fetchCalendarEvents
   const handleRefresh = () => {
     fetchCalendarEvents();
+    fetchAcademicTasks();
   };
 
   // Prepare events for display
@@ -108,9 +169,34 @@ const WeeklyCalendar = () => {
     };
   });
 
-  // Group events by day
+  // Process academic tasks for display
+  const processedTasks = academicTasks.map(task => {
+    const deadline = parseISO(task.deadline);
+    const deadlineDay = getDay(deadline);
+    const deadlineHour = deadline.getHours();
+    const deadlineMinute = deadline.getMinutes();
+    
+    return {
+      id: task.task_id,
+      type: 'academic_task',
+      title: `Task: ${task.title}`,
+      day: deadlineDay,
+      startTime: `${deadlineHour.toString().padStart(2, '0')}:${deadlineMinute.toString().padStart(2, '0')}`,
+      endTime: `${(deadlineHour + 1).toString().padStart(2, '0')}:${deadlineMinute.toString().padStart(2, '0')}`,
+      description: task.description || '',
+      color: typeColors['academic_task'],
+      opacity: 0.9,
+      priority: 4, // Default high priority for academic tasks
+      status: task.status,
+      isAcademicTask: true,
+      taskId: task.task_id
+    };
+  });
+
+  // Group all events by day, including academic tasks
+  const allEvents = [...processedEvents, ...processedTasks];
   const eventsByDay = {};
-  processedEvents.forEach(ev => {
+  allEvents.forEach(ev => {
     if (!eventsByDay[ev.day]) eventsByDay[ev.day] = [];
     eventsByDay[ev.day].push(ev);
   });
@@ -256,6 +342,21 @@ const WeeklyCalendar = () => {
                     {ev.title}
                   </div>
                   {ev.location && <div style={{fontSize: '0.75rem'}}>{ev.location}</div>}
+                  
+                  {/* Add checkbox for academic tasks */}
+                  {ev.isAcademicTask && (
+                    <div className={styles.taskActions}>
+                      <label className={styles.checkboxContainer}>
+                        <input 
+                          type="checkbox" 
+                          checked={ev.status === 'completed'}
+                          onChange={() => handleMarkTaskCompleted(ev.taskId)}
+                        />
+                        <span className={styles.checkmark}></span>
+                        Mark as completed
+                      </label>
+                    </div>
+                  )}
                 </div>
               );
             })}

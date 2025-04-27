@@ -681,30 +681,111 @@ class AcademicTaskCreate(BaseModel):
     deadline: datetime
     priority: Optional[int] = 3  # Default priority of 3 (medium)
 
-#needs a special api key to only be accessed by the IEP that
-# generate the academic
 @router.post("/academic-tasks")
 async def create_academic_task(
     task: AcademicTaskCreate,
     current_student: Student = Depends(get_current_student),
     db: Session = Depends(get_db)
 ):
-    # """Create a new academic task for the current student"""
-    # # Check if the course exists and belongs to the student
-    # course = db.query(Course).filter(
-    #     Course.course_id == task.course_id,
-    #     Course.student_id == current_student.student_id
-    # ).first()
+    """Create a new academic task for the current student"""
+    # Check if the course exists and belongs to the student
+    course = db.query(Course).filter(
+        Course.course_id == task.course_id
+    ).first()
     
-    # if not course:
-    #     raise HTTPException(status_code=404, detail="Course not found or not owned by this student")
+    if not course:
+        raise HTTPException(status_code=404, detail="Course not found")
     
-    # db.add(task)
-    # db.commit()
-    # db.refresh(task)
+    # Check if student is registered for this course
+    is_registered = db.query(StudentCourse).filter(
+        StudentCourse.student_id == current_student.student_id,
+        StudentCourse.course_id == task.course_id
+    ).first()
     
-    # return task
-    raise HTTPException(status_code=501, detail="Academic task creation not implemented yet")
+    if not is_registered:
+        raise HTTPException(status_code=403, detail="Student is not registered for this course")
+    
+    # Map frontend task type to allowed backend task_type values
+    type_mapping = {
+        "Exam": "exam",
+        "Quiz": "exam",
+        "Assignment": "assignment",
+        "Project": "project",
+        "Reading": "revision",
+        "Presentation": "project",
+        "Other": "revision"
+    }
+    
+    # Extract the task type from the name or use a default
+    task_type_hint = task.task_name.split()[0] if task.task_name and ' ' in task.task_name else task.task_name
+    
+    # Use the mapping or default to "revision" if not recognized
+    task_type = type_mapping.get(task_type_hint, "revision")
+    
+    # Create a new academic task model
+    new_task = AcademicTask(
+        title=task.task_name,
+        task_type=task_type,
+        course_id=task.course_id,
+        deadline=task.deadline,
+        status="pending",
+        description=task.description
+    )
+    
+    db.add(new_task)
+    db.commit()
+    db.refresh(new_task)
+    
+    return new_task
+
+class AcademicTaskUpdate(BaseModel):
+    status: Optional[str] = None  # "pending", "in_progress", "completed", or "overdue"
+    title: Optional[str] = None
+    description: Optional[str] = None
+    deadline: Optional[datetime] = None
+
+@router.put("/academic-tasks/{task_id}")
+async def update_academic_task(
+    task_id: int,
+    task_update: AcademicTaskUpdate,
+    current_student: Student = Depends(get_current_student),
+    db: Session = Depends(get_db)
+):
+    """Update an academic task status or other fields"""
+    # Check if the student has access to this task through a registered course
+    registered_courses = db.query(Course).\
+        join(StudentCourse, StudentCourse.course_id == Course.course_id).\
+        filter(StudentCourse.student_id == current_student.student_id).\
+        all()
+    
+    course_ids = [course.course_id for course in registered_courses]
+    
+    # Find the task
+    db_task = db.query(AcademicTask).filter(
+        AcademicTask.task_id == task_id,
+        AcademicTask.course_id.in_(course_ids)
+    ).first()
+    
+    if not db_task:
+        raise HTTPException(status_code=404, detail="Academic task not found or not accessible")
+    
+    # Update fields that are provided
+    update_data = task_update.dict(exclude_unset=True, exclude_none=True)
+    
+    # Validate status value if provided
+    if "status" in update_data:
+        valid_statuses = ["pending", "in_progress", "completed", "overdue"]
+        if update_data["status"] not in valid_statuses:
+            raise HTTPException(status_code=400, detail=f"Invalid status. Must be one of: {', '.join(valid_statuses)}")
+    
+    # Apply updates
+    for key, value in update_data.items():
+        setattr(db_task, key, value)
+    
+    db.commit()
+    db.refresh(db_task)
+    
+    return db_task
 
 # ---- Calendar Events ----
 @router.get("/calendar-events", operation_id="get_calendar_events")

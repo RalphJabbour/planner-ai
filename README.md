@@ -182,6 +182,20 @@ Several services require environment variables to be set up:
    ```
 
 2. **Backend** settings can be configured in `backend/.env`
+    ```bash
+    DATABASE_URL=postgresql://postgres:1234@db:5432/EECE503N-planner
+    SECRET_KEY=your-secret-key-should-be-very-long-and-secure
+    ALGORITHM=HS256
+    ACCESS_TOKEN_EXPIRE_MINUTES=30
+    ```
+
+3. **PLANNER_AI: main directory** 
+    ```bash
+    POSTGRES_PASSWORD=1234
+    POSTGRES_USER=postgres
+    POSTGRES_DB=EECE503N-planner   
+    ``` 
+    
 
 ## API Documentation
 

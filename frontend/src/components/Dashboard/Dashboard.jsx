@@ -14,6 +14,14 @@ const Dashboard = () => {
   const [error, setError] = useState(null);
   const navigate = useNavigate();
   
+  // Task modal state
+  const [showTaskModal, setShowTaskModal] = useState(false);
+  const [selectedTaskType, setSelectedTaskType] = useState("");
+  const [selectedCourse, setSelectedCourse] = useState("");
+  const [taskTitle, setTaskTitle] = useState("");
+  const [taskDeadline, setTaskDeadline] = useState("");
+  const [isAddingTask, setIsAddingTask] = useState(false);
+  
   // Course browser state
   const [courses, setCourses] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -258,6 +266,107 @@ const Dashboard = () => {
     });
   };
 
+  // Handle adding academic task
+  const handleAddAcademicTask = async () => {
+    if (!selectedTaskType || !selectedCourse || !taskTitle || !taskDeadline) {
+      alert("Please fill in all required fields");
+      return;
+    }
+
+    try {
+      setIsAddingTask(true);
+      const token = localStorage.getItem("accessToken");
+      
+      // Include the selected task type in the title to help backend identify task type
+      const taskNameWithType = `${selectedTaskType}: ${taskTitle}`;
+      
+      // Create payload matching backend expectations
+      const payload = {
+        course_id: selectedCourse,
+        task_name: taskNameWithType, // Include task type in the name
+        description: `${selectedTaskType} for course`,
+        deadline: new Date(taskDeadline).toISOString()
+      };
+      
+      console.log("Sending task payload:", payload);
+      
+      const response = await fetch("/api/tasks/academic-tasks", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(payload),
+      });
+      
+      // Log response status for debugging
+      console.log("Response status:", response.status);
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.log("Error data:", errorData);
+        // Handle the different error message formats
+        const errorMessage = errorData.detail || 
+                            (Array.isArray(errorData) ? errorData.map(err => err.msg).join(', ') : 
+                            (typeof errorData === 'object' ? JSON.stringify(errorData) : 
+                            `Error ${response.status}: ${response.statusText}`));
+        throw new Error(errorMessage);
+      }
+      
+      // Reset form
+      setShowTaskModal(false);
+      setSelectedTaskType("");
+      setSelectedCourse("");
+      setTaskTitle("");
+      setTaskDeadline("");
+      
+      // Refresh tasks list
+      await fetchUserData();
+      
+      // Show success message
+      alert("Academic task added successfully!");
+      
+      // Navigate to materials quiz if task type is exam
+      if (selectedTaskType === "Exam") {
+        navigate("/materials-quiz");
+      }
+    } catch (err) {
+      console.error("Error adding academic task:", err);
+      alert(`Failed to add task: ${err.message}`);
+    } finally {
+      setIsAddingTask(false);
+    }
+  };
+
+  // Handle marking a task as completed
+  const handleMarkTaskCompleted = async (taskId) => {
+    try {
+      const token = localStorage.getItem("accessToken");
+      
+      const response = await fetch(`/api/tasks/academic-tasks/${taskId}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ status: "completed" }),
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to update task: ${response.status}`);
+      }
+      
+      // Refresh tasks
+      await fetchUserData();
+      
+      // Show success message
+      alert("Task marked as completed!");
+    } catch (err) {
+      console.error("Failed to mark task as completed:", err);
+      alert(`Error: ${err.message}`);
+    }
+  };
+
   if (loading) {
     return (
       <div className="dashboard-loading">
@@ -302,6 +411,12 @@ const Dashboard = () => {
               onClick={() => navigate("/schedule")}
             >
               View Schedule
+            </button>
+            <button 
+              className="materials-quiz-btn"
+              onClick={() => setShowTaskModal(true)}
+            >
+              Add Academic Task
             </button>
             <button 
               className="browse-courses-btn"
@@ -441,7 +556,7 @@ const Dashboard = () => {
             ) : (
               <div className="tasks-list">
                 {upcomingTasks.map((task) => (
-                  <div className="task-item" key={task.task_id}>
+                  <div className={`task-item ${task.status === "completed" ? "completed" : ""}`} key={task.task_id}>
                     <div className={`task-status ${task.status}`}>
                       {task.status === "completed" ? "✓" : ""}
                     </div>
@@ -451,7 +566,7 @@ const Dashboard = () => {
                         <span className="task-course">
                           {task.course_code || "Unknown course"}
                         </span>
-                        <span className="task-type">{task.type}</span>
+                        <span className="task-type">{task.task_type}</span>
                       </div>
                     </div>
                     <div className="task-deadline">
@@ -460,6 +575,16 @@ const Dashboard = () => {
                       </div>
                       <div className="deadline-label">Due</div>
                     </div>
+                    {task.status !== "completed" && (
+                      <div className="task-actions">
+                        <button 
+                          onClick={() => handleMarkTaskCompleted(task.task_id)}
+                          className="mark-completed-btn"
+                        >
+                          Mark as Completed
+                        </button>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -638,6 +763,100 @@ const Dashboard = () => {
               )}
             </>
           )}
+        </div>
+      )}
+
+      {/* Academic Task Modal */}
+      {showTaskModal && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <div className="modal-header">
+              <h2>Add Academic Task</h2>
+              <button 
+                className="close-modal" 
+                onClick={() => setShowTaskModal(false)}
+              >
+                &times;
+              </button>
+            </div>
+            
+            <div className="modal-body">
+              <div className="form-group">
+                <label htmlFor="taskType">Task Type *</label>
+                <select
+                  id="taskType"
+                  value={selectedTaskType}
+                  onChange={(e) => setSelectedTaskType(e.target.value)}
+                  required
+                >
+                  <option value="">Select Task Type</option>
+                  <option value="Exam">Exam</option>
+                  <option value="Quiz">Quiz</option>
+                  <option value="Assignment">Assignment</option>
+                  <option value="Project">Project</option>
+                  <option value="Reading">Reading</option>
+                  <option value="Presentation">Presentation</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+              
+              <div className="form-group">
+                <label htmlFor="course">Course *</label>
+                <select
+                  id="course"
+                  value={selectedCourse}
+                  onChange={(e) => setSelectedCourse(e.target.value)}
+                  required
+                >
+                  <option value="">Select Course</option>
+                  {registeredCourses.map((course) => (
+                    <option key={course.course_id} value={course.course_id}>
+                      {course.course_code} - {course.course_name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              
+              <div className="form-group">
+                <label htmlFor="taskTitle">Title *</label>
+                <input
+                  type="text"
+                  id="taskTitle"
+                  value={taskTitle}
+                  onChange={(e) => setTaskTitle(e.target.value)}
+                  placeholder="e.g., Midterm Exam"
+                  required
+                />
+              </div>
+              
+              <div className="form-group">
+                <label htmlFor="taskDeadline">Deadline *</label>
+                <input
+                  type="datetime-local"
+                  id="taskDeadline"
+                  value={taskDeadline}
+                  onChange={(e) => setTaskDeadline(e.target.value)}
+                  required
+                />
+              </div>
+            </div>
+            
+            <div className="modal-footer">
+              <button 
+                className="cancel-btn"
+                onClick={() => setShowTaskModal(false)}
+              >
+                Cancel
+              </button>
+              <button 
+                className="add-task-btn"
+                onClick={handleAddAcademicTask}
+                disabled={isAddingTask}
+              >
+                {isAddingTask ? "Adding..." : "Add Task"}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

@@ -971,3 +971,17 @@
 .task-item.completed .task-title {
   text-decoration: line-through;
 }
+
+.header-actions button[class*='materials-quiz-btn'] {
+  margin-right: 12px;
+  background-color: #3182ce;
+  color: white;
+}
+
+.header-actions button[class*='materials-quiz-btn']:hover {
+  background-color: #2c5282;
+}
+
+.header-actions button:last-child {
+  margin-right: 0;
+}

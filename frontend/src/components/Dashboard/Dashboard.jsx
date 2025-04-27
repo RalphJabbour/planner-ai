@@ -414,6 +414,12 @@ const Dashboard = () => {
             </button>
             <button 
               className="materials-quiz-btn"
+              onClick={() => navigate("/study-time-estimator")}
+            >
+              Study Time Estimator
+            </button>
+            <button 
+              className="materials-quiz-btn"
               onClick={() => setShowTaskModal(true)}
             >
               Add Academic Task

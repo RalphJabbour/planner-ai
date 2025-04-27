@@ -13,6 +13,7 @@ import Dashboard from "./components/Dashboard/Dashboard";
 import FixedObligationForm from "./components/Obligations/FixedObligationForm";
 import FlexibleObligationForm from "./components/Obligations/FlexibleObligationForm";
 import MaterialsQuizPage from "./components/MaterialsQuiz/MaterialsQuizPage";
+import StudyTimeEstimator from "./components/MaterialsQuiz/StudyTimeEstimator";
 // import Schedule from "./components/Schedule/Schedule";
 import WeeklyCalendar from "./components/Schedule/WeeklyCalendar/WeeklyCalendar";
 
@@ -49,6 +50,14 @@ function App() {
           element={
             <ProtectedRoute>
               <MaterialsQuizPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/study-time-estimator"
+          element={
+            <ProtectedRoute>
+              <StudyTimeEstimator />
             </ProtectedRoute>
           }
         />

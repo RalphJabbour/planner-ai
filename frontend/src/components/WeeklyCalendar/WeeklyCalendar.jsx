@@ -24,7 +24,7 @@ const priorityOpacity = {
   5: 1.0
 };
 
-const WeeklyCalendar = () => {
+const WeeklyCalendar = ({ style }) => {
   const [calendarEvents, setCalendarEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -133,7 +133,7 @@ const WeeklyCalendar = () => {
   }
 
   return (
-    <div className={styles.calendar}>
+    <div className={styles.calendar} style={style}>
       {/* Calendar Controls */}
       <div className={styles.header}>
         <div className={styles.headerLeft || "flex items-center"}>

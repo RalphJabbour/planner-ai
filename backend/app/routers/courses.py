@@ -7,7 +7,7 @@ from app.database import get_db
 from app.models.student import Student
 from app.models.course import Course, StudentCourse
 from app.auth.token import get_current_student
-from app.routers.tasks import create_fixed_obligation, FixedObligationCreate, delete_fixed_obligation
+from app.routers.tasks import create_fixed_obligation, FixedObligationCreate, delete_fixed_obligation, create_calendar_events_from_fixed
 import datetime
 from app.or_tools.service import update_schedule  # Import the update_schedule function
 from app.models.schedule import FixedObligation
@@ -145,36 +145,26 @@ async def register_course(
                 elif char == 'U':
                     days_of_week.append("Sunday")
             
-            # Fix: Properly await the coroutine
-            await create_fixed_obligation(
-                FixedObligationCreate(
-                    name=course.course_name,
-                    description=course.course_code + " Lecture", 
-                    start_time=start_time,
-                    end_time=end_time,
-                    days_of_week=days_of_week,
-                    start_date=start_date,
-                    end_date=end_date,
-                    recurrence="weekly",
-                    priority=3,
-                ),
-                current_student=current_student,
-                db=db,
+            # Create the obligation object
+            new_obligation = FixedObligation(
+                student_id=current_student.student_id,
+                name=course.course_name,
+                description=course.course_code + " Lecture",
+                start_time=start_time,
+                end_time=end_time,
+                days_of_week=days_of_week,
+                start_date=start_date,
+                end_date=end_date,
+                recurrence="weekly",
+                priority=3,
+                course_id=course.course_id,
             )
-            #for the newly created fixed obligation, we need to set the course_id
-            #to the course_id of the course that was registered
-            fixed_obligation = db.query(FixedObligation).filter(
-                FixedObligation.student_id == current_student.student_id,
-                FixedObligation.start_time == start_time,
-                FixedObligation.end_time == end_time,
-                FixedObligation.start_date == start_date,
-                FixedObligation.end_date == end_date,
-            ).first()
-            if fixed_obligation:
-                fixed_obligation.course_id = course.course_id
-                db.commit()
-                db.refresh(fixed_obligation)
-                logging.info(f"Fixed obligation created: {fixed_obligation.to_dict()}")
+    
+            db.add(new_obligation)
+            db.commit()
+            db.refresh(new_obligation)
+
+            create_calendar_events_from_fixed(new_obligation, current_student, db)
         #TODO:
         # Call update_schedule to optimize the calendar
         # Temporarily disabled
@@ -248,12 +238,14 @@ async def unregister_course(
     
     try:
         # Delete the fixed obligation associated with the course
-        fixed_obligation = db.query(FixedObligation).filter(
+        fixed_obligations = db.query(FixedObligation).filter(
             FixedObligation.course_id == course_id,
-        ).first()
+        ).all()
         
-        if fixed_obligation:
-            await delete_fixed_obligation(fixed_obligation.obligation_id, current_student, db)
+
+        if fixed_obligations:
+            for fixed_obligation in fixed_obligations:
+                await delete_fixed_obligation(fixed_obligation.obligation_id, current_student, db)
     except Exception as e:
         logging.error(f"Error deleting fixed obligation: {e}")
         raise HTTPException(status_code=500, detail="Error deleting fixed obligation")

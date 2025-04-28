@@ -9,7 +9,6 @@ import LandingPage from "./components/LandingPage/LandingPage";
 import LoginPage from "./components/Login-Signup/LoginPage";
 import SignupPage from "./components/Login-Signup/SignupPage";
 import SurveyPage from "./components/Survey/SurveyPage";
-import Dashboard from "./components/Dashboard/Dashboard";
 import FixedObligationForm from "./components/Obligations/FixedObligationForm";
 import FlexibleObligationForm from "./components/Obligations/FlexibleObligationForm";
 import MaterialsQuizPage from "./components/MaterialsQuiz/MaterialsQuizPage";
@@ -41,14 +40,6 @@ function App() {
           element={
             // <ProtectedRoute>
               <Home />
-            // </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/dashboard"
-          element={
-            // <ProtectedRoute>
-              <Dashboard />
             // </ProtectedRoute>
           }
         />
@@ -92,12 +83,12 @@ function App() {
             </ProtectedRoute>
           }
         />
-        {/* Redirect any unknown routes to dashboard if logged in, otherwise to landing page */}
+        {/* Redirect any unknown routes to home if logged in, otherwise to landing page */}
         <Route
           path="*"
           element={
             localStorage.getItem("accessToken") ? (
-              <Navigate to="/dashboard" />
+              <Navigate to="/home" />
             ) : (
               <Navigate to="/" />
             )

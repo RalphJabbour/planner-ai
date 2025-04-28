@@ -144,8 +144,8 @@ const MaterialsQuizPage = () => {
       <div className="materials-quiz-container">
         <div className="materials-quiz-header">
           <h1>Upload Learning Material</h1>
-          <button className="back-btn" onClick={() => navigate("/dashboard")}>
-            Back to Dashboard
+          <button className="back-btn" onClick={() => navigate("/home")}>
+            Back to Home
           </button>
         </div>
         
@@ -202,8 +202,8 @@ const MaterialsQuizPage = () => {
       <div className="materials-quiz-container">
         <div className="materials-quiz-header">
           <h1>Rate Your Knowledge</h1>
-          <button className="back-btn" onClick={() => navigate("/dashboard")}>
-            Back to Dashboard
+          <button className="back-btn" onClick={() => navigate("/home")}>
+            Back to Home
           </button>
         </div>
         
@@ -272,8 +272,8 @@ const MaterialsQuizPage = () => {
       <div className="materials-quiz-container">
         <div className="materials-quiz-header">
           <h1>Concept Ratings Submitted</h1>
-          <button className="back-btn" onClick={() => navigate("/dashboard")}>
-            Back to Dashboard
+          <button className="back-btn" onClick={() => navigate("/home")}>
+            Back to Home
           </button>
         </div>
         
@@ -294,9 +294,9 @@ const MaterialsQuizPage = () => {
             </button>
             <button 
               className="primary-btn" 
-              onClick={() => navigate("/dashboard")}
+              onClick={() => navigate("/home")}
             >
-              Return to Dashboard
+              Return to Home
             </button>
           </div>
         </div>

@@ -11,6 +11,7 @@ ENV PATH="/root/.local/bin:${PATH}"
 
 # Set working directory
 WORKDIR /app
+ENV PYTHONPATH=/app:$PYTHONPATH
 
 # Copy only dependency files first
 COPY pyproject.toml uv.lock* ./

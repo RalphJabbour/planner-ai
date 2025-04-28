@@ -135,8 +135,7 @@ const FixedObligationForm = ({ onSubmit, initialData = {} }) => {
         throw new Error(errorData.detail || `Error ${response.status}: ${response.statusText}`);
       }
       
-      // Navigate back to dashboard on success
-      navigate("/dashboard");
+      navigate("/home");
     } catch (err) {
       console.error("Error submitting obligation:", err);
       setError(err.message);
@@ -157,8 +156,8 @@ const FixedObligationForm = ({ onSubmit, initialData = {} }) => {
     <div className="obligation-form-container">
       <div className="obligation-form-header">
         <h1>{isEditMode ? "Edit Fixed Obligation" : "Add Fixed Obligation"}</h1>
-        <button className="back-btn" onClick={() => navigate("/dashboard")}>
-          Back to Dashboard
+        <button className="back-btn" onClick={() => navigate("/home")}>
+          Back to Home
         </button>
       </div>
       
@@ -291,7 +290,7 @@ const FixedObligationForm = ({ onSubmit, initialData = {} }) => {
           <button
             type="button"
             className="cancel-btn"
-            onClick={() => navigate("/dashboard")}
+            onClick={() => navigate("/home")}
           >
             Cancel
           </button>

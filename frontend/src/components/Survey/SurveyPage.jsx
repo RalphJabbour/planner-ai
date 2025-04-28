@@ -127,11 +127,11 @@ function SurveyPage() {
       });
 
       // Redirect to schedule page
-      navigate("/dashboard");
+      navigate("/home");
     } catch (err) {
       console.error("Failed to submit answers:", err);
       // Still redirect even if submission fails
-      navigate("/dashboard");
+      navigate("/home");
     }
   };
 
@@ -149,8 +149,8 @@ function SurveyPage() {
       <div className="survey-error">
         <h2>Something went wrong</h2>
         <p>{error}</p>
-        <button onClick={() => navigate("/dashboard")} className="skip-button">
-          Continue to Dashboard
+        <button onClick={() => navigate("/home")} className="skip-button">
+          Continue to Home
         </button>
       </div>
     );

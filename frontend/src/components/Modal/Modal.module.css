@@ -1,0 +1,74 @@
+.modalOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.6); /* Semi-transparent background */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000; /* Ensure it's on top */
+}
+
+.modalContent {
+  background-color: #ffffff;
+  padding: 1.5rem 2rem;
+  border-radius: 8px;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+  min-width: 400px; /* Minimum width */
+  max-width: 600px; /* Maximum width */
+  max-height: 80vh; /* Limit height */
+  display: flex;
+  flex-direction: column;
+  overflow: hidden; /* Prevent content overflow */
+}
+
+.modalHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid #e5e7eb;
+  padding-bottom: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.modalHeader h2 {
+  margin: 0;
+  font-size: 1.25rem;
+  color: #1f2937;
+}
+
+.closeButton {
+  background: none;
+  border: none;
+  font-size: 1.8rem;
+  line-height: 1;
+  cursor: pointer;
+  color: #6b7280;
+  padding: 0.2rem;
+}
+.closeButton:hover {
+  color: #1f2937;
+}
+
+.modalBody {
+  overflow-y: auto; /* Allow body content to scroll */
+  padding-right: 5px; /* Space for scrollbar */
+}
+
+/* Example detail styles (add more as needed) */
+.detailItem {
+  margin-bottom: 0.6rem;
+  font-size: 0.95rem;
+}
+.detailLabel {
+  font-weight: 600;
+  color: #4b5563;
+  margin-right: 0.5rem;
+  display: inline-block;
+  min-width: 100px; /* Align labels */
+}
+.detailValue {
+  color: #1f2937;
+}

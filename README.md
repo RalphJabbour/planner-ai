@@ -86,10 +86,15 @@ This IEP analyzes PDF documents to estimate the amount of study time required fo
 When first setting up, create `iep-quiz/.env` file with:
 
 ```bash
-AZURE_OPENAI_DEPLOYMENT=gpt-4o-mini
-AZURE_OPENAI_KEY=your-openai-api-key
-AZURE_OPENAI_ENDPOINT=https://ryj01-m9bcjuyj-eastus2.cognitiveservices.azure.com/
-AZURE_OPENAI_API_VERSION=2024-12-01-preview
+  DATABASE_URL=postgresql://postgres:1234@db:5432/EECE503N-planner
+  SECRET_KEY=your-secret-key-should-be-very-long-and-secure
+  ALGORITHM=HS256
+  ACCESS_TOKEN_EXPIRE_MINUTES=30
+  
+  AZURE_OPENAI_DEPLOYMENT=gpt-4o-mini
+  AZURE_OPENAI_KEY=5oru9o5f1ZuqIEIUxDLosgOiz8EdjFURkvs8U7HOjIIsnF1CzqwMJQQJ99BDACHYHv6XJ3w3AAAAACOG93XL
+  AZURE_OPENAI_ENDPOINT=https://ryj01-m9bcjuyj-eastus2.cognitiveservices.azure.com/
+  AZURE_OPENAI_API_VERSION=2024-12-01-preview
 ```
 
 ### Quiz Generator
@@ -175,10 +180,15 @@ Several services require environment variables to be set up:
    Create `iep-quiz/.env` with:
 
    ```bash
-   AZURE_OPENAI_DEPLOYMENT=gpt-4o-mini
-   AZURE_OPENAI_KEY=your-openai-api-key
-   AZURE_OPENAI_ENDPOINT=https://ryj01-m9bcjuyj-eastus2.cognitiveservices.azure.com/
-   AZURE_OPENAI_API_VERSION=2024-12-01-preview
+  DATABASE_URL=postgresql://postgres:1234@db:5432/EECE503N-planner
+  SECRET_KEY=your-secret-key-should-be-very-long-and-secure
+  ALGORITHM=HS256
+  ACCESS_TOKEN_EXPIRE_MINUTES=30
+  
+  AZURE_OPENAI_DEPLOYMENT=gpt-4o-mini
+  AZURE_OPENAI_KEY=5oru9o5f1ZuqIEIUxDLosgOiz8EdjFURkvs8U7HOjIIsnF1CzqwMJQQJ99BDACHYHv6XJ3w3AAAAACOG93XL
+  AZURE_OPENAI_ENDPOINT=https://ryj01-m9bcjuyj-eastus2.cognitiveservices.azure.com/
+  AZURE_OPENAI_API_VERSION=2024-12-01-preview
    ```
 
 2. **Backend** settings can be configured in `backend/.env`
@@ -187,13 +197,34 @@ Several services require environment variables to be set up:
     SECRET_KEY=your-secret-key-should-be-very-long-and-secure
     ALGORITHM=HS256
     ACCESS_TOKEN_EXPIRE_MINUTES=30
+    
+    INIT_API_KEY=jasldfhasdkjfhs
+    
+    model=azure/gpt-4o-mini
+    AZURE_API_KEY=5oru9o5f1ZuqIEIUxDLosgOiz8EdjFURkvs8U7HOjIIsnF1CzqwMJQQJ99BDACHYHv6XJ3w3AAAAACOG93XL
+    AZURE_API_BASE=https://ryj01-m9bcjuyj-eastus2.cognitiveservices.azure.com/
+    AZURE_API_VERSION=2024-12-01-preview
+    
+    MCP_SERVER_URL=http://localhost:9002
     ```
 
 3. **PLANNER_AI: main directory** 
     ```bash
-    POSTGRES_PASSWORD=1234
+    DATABASE_URL=postgresql://postgres:1234@db:5432/EECE503N-planner
+    POSTGRES_DB=EECE503N-planner
     POSTGRES_USER=postgres
-    POSTGRES_DB=EECE503N-planner   
+    POSTGRES_PASSWORD=1234
+    DB_HOST=db
+    DB_PORT=5432
+    
+    INIT_API_KEY=jasldfhasdkjfhs
+    BACKEND_URL=http://backend:8000
+    
+    model=azure/gpt-4o-mini
+    AZURE_API_KEY=5oru9o5f1ZuqIEIUxDLosgOiz8EdjFURkvs8U7HOjIIsnF1CzqwMJQQJ99BDACHYHv6XJ3w3AAAAACOG93XL
+    AZURE_API_BASE=https://ryj01-m9bcjuyj-eastus2.cognitiveservices.azure.com/
+    AZURE_API_VERSION=2024-12-01-preview
+
     ``` 
     
 

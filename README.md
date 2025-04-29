@@ -65,7 +65,7 @@ The application is built using a microservices architecture with Docker, allowin
     - Create `behavior_analyzer/.env`
     
     **Example `.env` (root directory):**
-    ```
+    ```dotenv
     DATABASE_URL=postgresql://postgres:1234@db:5432/EECE503N-planner
     POSTGRES_PASSWORD=1234
     POSTGRES_USER=postgres
@@ -74,10 +74,10 @@ The application is built using a microservices architecture with Docker, allowin
     DB_PORT=5432
     INIT_API_KEY=jasldfhasdkjfhs
     BACKEND_URL=http://backend:8000
-        ```
+    ```
 
     **Example `backend/.env`:**
-    ```
+    ```dotenv
     # Database Connection
     DATABASE_URL=postgresql://postgres:1234@db:5432/EECE503N-planner
     SECRET_KEY=your-secret-key-should-be-very-long-and-secure
@@ -92,7 +92,7 @@ The application is built using a microservices architecture with Docker, allowin
     ```
 
     **Example `mcp_client/.env`:**
-    ```properties
+    ```dotenv
     AZURE_OPENAI_DEPLOYMENT=gpt-4o-mini
     AZURE_OPENAI_KEY=<Your Azure OpenAI Key>
     AZURE_OPENAI_ENDPOINT=<Your Azure OpenAI Endpoint>
@@ -102,7 +102,7 @@ The application is built using a microservices architecture with Docker, allowin
     ```
 
     **Example `iep-quiz/.env`:**
-    ```
+    ```dotenv
     AZURE_OPENAI_DEPLOYMENT=gpt-4o-mini
     AZURE_OPENAI_KEY=your-openai-api-key # Has to be from Azure
     AZURE_OPENAI_ENDPOINT=https://ryj01-m9bcjuyj-eastus2.cognitiveservices.azure.com/
@@ -110,7 +110,7 @@ The application is built using a microservices architecture with Docker, allowin
     ```
 
     **Example `behavior_analyzer/.env`:**
-    ```properties
+    ```dotenv
     DATABASE_URL=postgresql://postgres:1234@db:5432/EECE503N-planner
     SECRET_KEY=your-secret-key-should-be-very-long-and-secure
     ALGORITHM=HS256

@@ -32,7 +32,7 @@ const Navbar = ({ handleLogout, toggleInfoSidebar, handleOpenEstimator }) => { /
       </div>
       <div className={styles.navbarRight}>
         {/* Add Study Time Estimator Button */}
-        <button onClick={handleOpenEstimator} className={styles.navButton} title="Study Time Estimator">
+        <button onClick={() => navigate('/study-time-estimator')} className={styles.navButton} title="Study Time Estimator">
           <FiClock className={styles.navIcon} /> Estimator
         </button>
         <button onClick={handleExport} className={`${styles.navButton} ${styles.exportButton}`} title="Export to Google Calendar">
@@ -422,9 +422,6 @@ const Home = () => {
   const [taskDeadline, setTaskDeadline] = useState("");
   const [isAddingTask, setIsAddingTask] = useState(false);
 
-  // --- State for Study Time Estimator Modal ---
-  const [showEstimatorModal, setShowEstimatorModal] = useState(false);
-  // Add state for estimator form fields if needed, e.g.:
   // const [materialType, setMaterialType] = useState('');
   // const [pages, setPages] = useState('');
   // const [difficulty, setDifficulty] = useState('medium');
@@ -663,15 +660,6 @@ const Home = () => {
   }
 };
 
-  // --- Study Time Estimator Logic ---
-  const openEstimatorModal = () => setShowEstimatorModal(true);
-  const closeEstimatorModal = () => {
-      setShowEstimatorModal(false);
-      // Reset estimator state if needed
-      setIsEstimating(false);
-      setEstimatedTime(null);
-  };
-
   const handleEstimateStudyTime = async () => {
       // Placeholder: Replace with actual estimation logic/API call
       setIsEstimating(true);
@@ -692,7 +680,6 @@ const Home = () => {
       <Navbar
         handleLogout={handleLogout}
         toggleInfoSidebar={toggleInfoSidebar}
-        handleOpenEstimator={openEstimatorModal}
       />
       <div className={styles.mainContainer}>
         {/* Info Sidebar */}
@@ -819,45 +806,6 @@ const Home = () => {
               </button>
             </div>
         </Modal>
-
-        {/* Study Time Estimator Modal */}
-        <Modal isOpen={showEstimatorModal} onClose={closeEstimatorModal} title="Study Time Estimator">
-            <div className={styles.modalBody}>
-                {/* Placeholder Content - Replace with actual form fields */}
-                <p>Enter details about the material to estimate study time.</p>
-                <div className={styles.formGroup}>
-                    <label htmlFor="material">Material Description</label>
-                    <input type="text" id="material" placeholder="e.g., Chapter 5 Reading" className={styles.formInput}/>
-                </div>
-                 <div className={styles.formGroup}>
-                    <label htmlFor="pages">Number of Pages/Items</label>
-                    <input type="number" id="pages" placeholder="e.g., 25" className={styles.formInput}/>
-                </div>
-                {/* Add more fields as needed */}
-
-                {isEstimating && (
-                    <div className={styles.loadingIndicator}> {/* Add styles for this */}
-                        <div className={styles.spinner}></div> Estimating...
-                    </div>
-                )}
-                {estimatedTime && (
-                    <div className={styles.estimationResult}> {/* Add styles for this */}
-                        <strong>Estimated Time:</strong> {estimatedTime}
-                    </div>
-                )}
-            </div>
-            <div className={styles.modalFooter}>
-                <button className={styles.cancelBtn} onClick={closeEstimatorModal}>Close</button>
-                <button
-                    className={styles.addTaskBtn} // Reuse style or create a new one
-                    onClick={handleEstimateStudyTime}
-                    disabled={isEstimating}
-                >
-                    {isEstimating ? "Estimating..." : "Estimate"}
-                </button>
-            </div>
-        </Modal>
-
       </div>
     </div>
   );

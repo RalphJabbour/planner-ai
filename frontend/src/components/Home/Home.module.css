@@ -533,7 +533,6 @@
   color: #1f2937;
 }
 
-/* --- Modal Styles (Adapted from Dashboard.css) --- */
 /* These styles are applied via the Modal component, but we need specifics for content */
 
 .modalBody {

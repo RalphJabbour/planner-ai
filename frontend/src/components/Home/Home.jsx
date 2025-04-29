@@ -58,19 +58,63 @@ const ChatInterface = () => {
   const [messages, setMessages] = useState([{ text: "Hello! How can I help?", sender: "ai" }]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState(null); // Add error state
 
   const handleSend = async () => {
     if (!input.trim()) return;
     const userMessage = { text: input, sender: "user" };
-    setMessages(prev => [...prev, userMessage]);
+    const updatedMessages = [...messages, userMessage]; // Store updated messages temporarily
+    setMessages(updatedMessages);
+    const currentInput = input; // Store input before clearing
     setInput("");
     setIsLoading(true);
+    setError(null); // Clear previous errors
 
-    // Simulate AI response
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    const aiResponse = { text: `You said: ${userMessage.text}`, sender: "ai" };
-    setMessages(prev => [...prev, aiResponse]);
-    setIsLoading(false);
+    try {
+      const token = localStorage.getItem("accessToken");
+      if (!token) {
+        // Handle missing token, maybe redirect to login
+        setError("Authentication required. Please log in.");
+        setIsLoading(false);
+        return;
+      }
+
+      // Send request to the backend /api/chat endpoint
+      const response = await fetch('/api/chat', { // Assuming /api/chat is your backend endpoint
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        // Send the user's query in the expected format
+        // Adjust the body structure based on your backend API requirements
+        body: JSON.stringify({ query: currentInput }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || `Error ${response.status}: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+
+      // Assuming the backend returns the AI response in data.response
+      if (data.response) {
+        const aiResponse = { text: data.response, sender: "ai" };
+        setMessages(prev => [...prev, aiResponse]);
+      } else {
+        throw new Error("Received an empty response from the server.");
+      }
+
+    } catch (err) {
+      console.error("Chat API error:", err);
+      setError(`Failed to get response: ${err.message}`);
+      // Optionally add an error message to the chat
+      const errorResponse = { text: `Error: ${err.message}`, sender: "ai", isError: true };
+      setMessages(prev => [...prev, errorResponse]);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (

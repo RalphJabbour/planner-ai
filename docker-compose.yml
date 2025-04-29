@@ -15,6 +15,8 @@ services:
     depends_on:
       - db
   
+
+  
   mcp-server:
     build: ./mcp_server
     ports:
@@ -29,6 +31,8 @@ services:
     build: ./mcp_client
     depends_on:
       - mcp-server
+    ports:
+      - "3002:3002"
     environment:
       - MCP_SERVER_URL=http://mcp-server:3001
   

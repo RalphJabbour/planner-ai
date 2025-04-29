@@ -23,5 +23,7 @@ COPY . .
 # Set default environment variable for the MCP server URL
 ENV MCP_SERVER_URL="http://mcp-server:3001"
 
-# Run the client
-CMD ["uv", "run", "main.py"]
+# Expose the port the app runs on
+EXPOSE 3002
+
+CMD ["uv", "run", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "3002"]

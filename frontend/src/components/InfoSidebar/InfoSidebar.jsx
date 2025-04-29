@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import Calendar from 'react-calendar';
 import 'react-calendar/dist/Calendar.css';
-import styles from './InfoSidebar.module.css'; // Use sidebar-specific styles
-import { useNavigate } from 'react-router-dom'; // Import useNavigate
+import styles from './InfoSidebar.module.css';
+import { useNavigate } from 'react-router-dom';
+import { FiPlusSquare } from 'react-icons/fi'; // Import icon if needed, or use text
 
 const formatDateSimple = (date) => {
   if (!date) return "";
@@ -15,16 +16,17 @@ const formatDateSimple = (date) => {
 
 const InfoSidebar = ({
   registeredCourses = [],
-  academicTasks = [], // Keep academic tasks as is for now
+  academicTasks = [],
   fixedObligations = [],
   flexibleObligations = [],
   onDateChange,
   isExpanded,
-  toggleSidebar,
-  onItemClick, // Keep for potential other uses (like academic tasks)
-  handleCourseUnregistration, // <-- New prop for unregistering
-  registrationInProgress = {}, // <-- Pass registration status
-  setActiveSecondarySidebar, // <-- New prop for setting active sidebar
+  // toggleSidebar, // Removed as toggle is in Navbar now
+  onItemClick,
+  handleCourseUnregistration,
+  registrationInProgress = {},
+  setActiveSecondarySidebar,
+  handleOpenTaskModal, // <-- New prop to open the task modal
 }) => {
   const [expandedSections, setExpandedSections] = useState({
     courses: true,
@@ -32,7 +34,7 @@ const InfoSidebar = ({
     fixedTasks: true,
     flexibleTasks: true,
   });
-  const navigate = useNavigate(); // Hook for navigation
+  const navigate = useNavigate();
 
   const toggleSection = (sectionName) => {
     setExpandedSections(prev => ({
@@ -59,9 +61,7 @@ const InfoSidebar = ({
           />
         </div>
 
-        {/* Sections Container */}
         <div className={styles.sectionsContainer}>
-
           {/* My Courses */}
           <div className={styles.section}>
             <div className={styles.sectionHeader}>
@@ -174,22 +174,35 @@ const InfoSidebar = ({
              </div>
            </div>
 
-           {/* Academic Tasks (Kept collapsible for now) */}
+           {/* Academic Tasks */}
            <div className={styles.section}>
-             <button
-               className={styles.collapsibleHeader} // Use a different style for collapsible ones
-               onClick={() => toggleSection('academicTasks')}
-               aria-expanded={expandedSections.academicTasks}
-             >
-               Academic Tasks
-               <span className={styles.toggleIcon}>{expandedSections.academicTasks ? '−' : '+'}</span>
-             </button>
+             {/* Updated Header with Add Button */}
+             <div className={styles.sectionHeader}>
+                <button
+                  className={styles.collapsibleHeaderButton} // Style as a button-like header
+                  onClick={() => toggleSection('academicTasks')}
+                  aria-expanded={expandedSections.academicTasks}
+                >
+                  Academic Tasks
+                  <span className={styles.toggleIcon}>{expandedSections.academicTasks ? '−' : '+'}</span>
+                </button>
+                {/* Add Button for Academic Tasks */}
+                <button
+                  className={styles.addBtn}
+                  onClick={handleOpenTaskModal} // Use the passed function
+                  title="Add Academic Task"
+                >
+                  + Add
+                </button>
+             </div>
              {expandedSections.academicTasks && (
                <div className={styles.sectionContent}>
                  {academicTasks.length === 0 ? (
                    <p className={styles.emptyState}>No upcoming academic tasks.</p>
+                   // Optionally add a button here too if the section is empty
+                   // <button onClick={handleOpenTaskModal}>Add Task</button>
                  ) : (
-                   <ul className={styles.list}> {/* Keep original list style for this */}
+                   <ul className={styles.list}>
                      {academicTasks.map(task => (
                        <li key={task.task_id} className={styles.listItem} onClick={() => onItemClick('academic', task)}>
                          <span className={styles.taskTitle}>{task.title}</span>

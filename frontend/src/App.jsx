@@ -12,9 +12,11 @@ import SurveyPage from "./components/Survey/SurveyPage";
 import FixedObligationForm from "./components/Obligations/FixedObligationForm";
 import FlexibleObligationForm from "./components/Obligations/FlexibleObligationForm";
 import MaterialsQuizPage from "./components/MaterialsQuiz/MaterialsQuizPage";
+import StudyTimeEstimator from "./components/MaterialsQuiz/StudyTimeEstimator";
 // import Schedule from "./components/Schedule/Schedule";
 import WeeklyCalendar from "./components/WeeklyCalendar/WeeklyCalendar";
 import Home from "./components/Home/Home";
+import Dashboard from "./components/Dashboard/Dashboard";
 
 // Simple protected route implementation
 const ProtectedRoute = ({ children }) => {
@@ -35,6 +37,7 @@ function App() {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignupPage />} />
         <Route path="/survey" element={<SurveyPage />} />
+        <Route path="/dashboard" element={<Dashboard />} />
         <Route
           path="/home"
           element={
@@ -48,6 +51,14 @@ function App() {
           element={
             <ProtectedRoute>
               <MaterialsQuizPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/study-time-estimator"
+          element={
+            <ProtectedRoute>
+              <StudyTimeEstimator />
             </ProtectedRoute>
           }
         />

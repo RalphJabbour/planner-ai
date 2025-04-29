@@ -31,6 +31,11 @@ class IdeasResponse(BaseModel):
     document_id: str
     ideas: list[Idea]
 
+class StudyTimeResponse(BaseModel):
+    document_id: str
+    estimated_hours: float
+    explanation: str
+
 def pdf_to_data_urls(pdf_bytes: bytes, dpi: int = 150) -> list[str]:
     """Convert PDF pages to data URLs with lower DPI to reduce size"""
     pil_images = convert_from_bytes(pdf_bytes, dpi=dpi)
@@ -250,4 +255,142 @@ async def extract_pdf_as_images(document_id: str = None, file: UploadFile = File
         return IdeasResponse(
             document_id=document_id,
             ideas=[Idea(concept=f"Error: {str(e)}")]
+        )
+
+async def estimate_study_time_from_pdf(data_urls: list[str], sample_rate: float = 0.2, min_pages: int = 3, max_pages: int = 10) -> dict:
+    """Estimate study time required for a PDF document"""
+    # Calculate how many pages to sample
+    total_pages = len(data_urls)
+    desired_pages = max(min_pages, min(max_pages, int(total_pages * sample_rate)))
+
+    # Select pages to sample
+    if len(data_urls) > desired_pages:
+        step = max(1, len(data_urls) // desired_pages)
+        sampled_urls = [data_urls[i] for i in range(0, len(data_urls), step)][:desired_pages]
+        print(f"Sampling {len(sampled_urls)} pages out of {len(data_urls)} total pages for study time estimation")
+    else:
+        sampled_urls = data_urls
+    
+    # Create a sample of pages to send to the LLM
+    sample_info = {
+        "total_pages": total_pages,
+        "sampled_pages": len(sampled_urls),
+        "page_images": sampled_urls
+    }
+    
+    # Build segments with each sample page
+    segments = [
+        {
+            "type": "text",
+            "text": f"You are analyzing a {total_pages}-page document to estimate study time. I've provided {len(sampled_urls)} sample pages. Analyze the content complexity, density, and difficulty to estimate how many hours a college student would need to thoroughly study this material. Consider both initial reading and review time."
+        }
+    ]
+    
+    # Add each sample page as an image
+    for i, url in enumerate(sampled_urls):
+        segments.append({
+            "type": "text",
+            "text": f"Sample page {i+1}:"
+        })
+        segments.append({
+            "type": "image_url",
+            "image_url": {"url": url, "detail": "low"}
+        })
+    
+    segments.append({
+        "type": "text",
+        "text": "Based on these sample pages and the total page count, provide your estimate in this exact format: HOURS: [number] followed by a brief explanation."
+    })
+    
+    payload = {
+        "messages": [
+            {
+                "role": "system",
+                "content": "You are an expert at estimating study time for academic documents. Be realistic about the time needed for thorough comprehension."
+            },
+            {
+                "role": "user",
+                "content": segments
+            }
+        ],
+        "temperature": 0.3,
+        "max_tokens": 300
+    }
+    
+    try:
+        response = await call_openai_with_retry(payload)
+        print(f"Study time estimation response: {response}")
+        
+        # Parse the response to extract the hours
+        hours = 0
+        explanation = response
+        
+        if "HOURS:" in response:
+            parts = response.split("HOURS:", 1)
+            if len(parts) > 1:
+                hours_text = parts[1].strip().split("\n")[0].strip()
+                
+                # Extract the numeric part
+                import re
+                hours_match = re.search(r"(\d+\.?\d*)", hours_text)
+                if hours_match:
+                    hours = float(hours_match.group(1))
+                
+                # Get the explanation (everything after the hours line)
+                explanation_lines = parts[1].strip().split("\n")[1:]
+                explanation = "\n".join(explanation_lines).strip()
+                if not explanation:
+                    explanation = "Based on document complexity and length."
+        else:
+            # Fallback if the expected format isn't found
+            hours = total_pages * 0.25  # Simple heuristic: 15 min per page
+            explanation = "Estimated based on document length. The AI did not provide a structured response."
+            
+        return {
+            "estimated_hours": hours,
+            "explanation": explanation
+        }
+        
+    except Exception as e:
+        print(f"Error estimating study time: {str(e)}")
+        # Fallback to a simple page-based estimate
+        return {
+            "estimated_hours": max(1, total_pages * 0.25),  # Minimum 1 hour, otherwise 15 min per page
+            "explanation": f"Estimation error: {str(e)}. Using fallback calculation based on page count."
+        }
+
+@app.post("/estimate-study-time", response_model=StudyTimeResponse)
+async def estimate_study_time(document_id: str = None, file: UploadFile = File(...)):
+    """Analyze a PDF document and estimate the study time required"""
+    if not file.filename.lower().endswith(".pdf"):
+        raise HTTPException(400, "Only PDF files are accepted.")
+
+    if not document_id:
+        document_id = f"doc-{os.urandom(4).hex()}"
+
+    try:
+        pdf_bytes = await file.read()
+        data_urls = pdf_to_data_urls(pdf_bytes)
+        
+        if not data_urls:
+            return StudyTimeResponse(
+                document_id=document_id,
+                estimated_hours=1.0,
+                explanation="Empty or invalid PDF. Using minimum study time."
+            )
+        
+        time_estimate = await estimate_study_time_from_pdf(data_urls)
+        
+        return StudyTimeResponse(
+            document_id=document_id,
+            estimated_hours=time_estimate["estimated_hours"],
+            explanation=time_estimate["explanation"]
+        )
+        
+    except Exception as e:
+        print(f"Error processing document for study time: {str(e)}")
+        return StudyTimeResponse(
+            document_id=document_id,
+            estimated_hours=1.0,
+            explanation=f"Error: {str(e)}. Using minimum study time."
         )

@@ -532,3 +532,169 @@
 .detailValue {
   color: #1f2937;
 }
+
+/* --- Modal Styles (Adapted from Dashboard.css) --- */
+/* These styles are applied via the Modal component, but we need specifics for content */
+
+.modalBody {
+  padding: 1.5rem;
+  max-height: 70vh; /* Allow scrolling within modal body */
+  overflow-y: auto;
+}
+
+.formGroup {
+  margin-bottom: 1.25rem;
+}
+
+.formGroup label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+  color: #444;
+}
+
+/* Shared style for input and select */
+.formInput {
+  width: 100%;
+  padding: 0.625rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 1rem;
+  box-sizing: border-box; /* Include padding and border in the element's total width and height */
+}
+
+.formInput:focus {
+  outline: none;
+  border-color: #0066cc;
+  box-shadow: 0 0 0 2px rgba(0, 102, 204, 0.2);
+}
+
+/* Ensure select dropdown arrows are visible */
+.formInput[type="select"] {
+  appearance: none; /* Consider custom dropdown styling if needed */
+  background-image: url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20width%3D%27292.4%27%20height%3D%27292.4%27%3E%3Cpath%20fill%3D%27%23007CB2%27%20d%3D%27M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%27%2F%3E%3C%2Fsvg%3E");
+  background-repeat: no-repeat;
+  background-position: right .7em top 50%;
+  background-size: .65em auto;
+  padding-right: 2.5em; /* Make space for the arrow */
+}
+
+
+.modalFooter {
+  display: flex;
+  justify-content: flex-end;
+  padding: 1rem 1.5rem;
+  border-top: 1px solid #eee;
+  gap: 0.75rem;
+  background-color: #f9f9f9; /* Light background for footer */
+  border-bottom-left-radius: 8px; /* Match modal border radius */
+  border-bottom-right-radius: 8px;
+}
+
+.cancelBtn {
+  background-color: #f2f2f2;
+  color: #333;
+  border: 1px solid #ddd;
+  padding: 0.625rem 1rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: background-color 0.2s;
+}
+.cancelBtn:hover {
+  background-color: #e0e0e0;
+}
+
+.addTaskBtn { /* Can be reused for other primary modal actions */
+  background-color: #0066cc;
+  color: white;
+  border: none;
+  padding: 0.625rem 1rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: background-color 0.2s;
+}
+
+.addTaskBtn:hover:not(:disabled) {
+  background-color: #0055aa;
+}
+
+.addTaskBtn:disabled {
+  background-color: #99c2ff;
+  cursor: not-allowed;
+}
+
+/* --- Estimator Specific Styles --- */
+.loadingIndicator {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 1rem;
+  color: #555;
+}
+
+.spinner { /* Simple spinner */
+  border: 3px solid rgba(0, 0, 0, 0.1);
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border-left-color: #0066cc;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.estimationResult {
+  margin-top: 1.5rem;
+  padding: 1rem;
+  background-color: #e7f3ff;
+  border-left: 4px solid #0066cc;
+  border-radius: 4px;
+  font-size: 1rem;
+}
+.estimationResult strong {
+  color: #0056b3;
+}
+
+/* --- InfoSidebar Specific Styles --- */
+.collapsibleHeaderButton {
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+  display: flex; /* To align icon */
+  justify-content: space-between; /* Push icon to the right */
+  align-items: center;
+  width: 100%; /* Take full width */
+  font-weight: bold; /* Make it look like a header */
+}
+.collapsibleHeaderButton:hover {
+  color: #0056b3; /* Add hover effect */
+}
+
+/* Adjust section header to accommodate button */
+.sectionHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem; /* Keep existing margin */
+  padding-bottom: 0.5rem; /* Keep existing padding */
+  border-bottom: 1px solid #eee; /* Keep existing border */
+}
+
+.sectionHeader h3 { /* If using h3 */
+  margin: 0;
+  flex-grow: 1; /* Allow header text to take available space */
+}
+
+.sectionHeader .addBtn {
+  margin-left: 0.5rem; /* Add space between title/toggle and add button */
+}

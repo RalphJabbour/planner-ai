@@ -145,3 +145,64 @@
   display: flex;
   align-items: center;
 }
+
+/* Task Actions Styling */
+.taskActions {
+  margin-top: 8px;
+  display: flex;
+  align-items: center;
+}
+
+.checkboxContainer {
+  display: flex;
+  align-items: center;
+  font-size: 12px;
+  color: #fff;
+  cursor: pointer;
+}
+
+.checkboxContainer input {
+  position: absolute;
+  opacity: 0;
+  cursor: pointer;
+  height: 0;
+  width: 0;
+}
+
+.checkmark {
+  position: relative;
+  height: 16px;
+  width: 16px;
+  background-color: rgba(255, 255, 255, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  border-radius: 3px;
+  margin-right: 5px;
+}
+
+.checkboxContainer:hover input ~ .checkmark {
+  background-color: rgba(255, 255, 255, 0.5);
+}
+
+.checkboxContainer input:checked ~ .checkmark {
+  background-color: rgba(255, 255, 255, 0.8);
+}
+
+.checkmark:after {
+  content: '';
+  position: absolute;
+  display: none;
+}
+
+.checkboxContainer input:checked ~ .checkmark:after {
+  display: block;
+}
+
+.checkboxContainer .checkmark:after {
+  left: 5px;
+  top: 2px;
+  width: 5px;
+  height: 9px;
+  border: solid #000;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}

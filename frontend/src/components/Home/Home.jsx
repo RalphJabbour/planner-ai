@@ -4,11 +4,11 @@ import WeeklyCalendar from '../WeeklyCalendar/WeeklyCalendar';
 import InfoSidebar from '../InfoSidebar/InfoSidebar';
 import Modal from '../Modal/Modal';
 // Import icons
-import { FiLogOut, FiSettings, FiUser, FiGrid, FiUploadCloud, FiMenu } from 'react-icons/fi'; // Add FiMenu
+import { FiLogOut, FiSettings, FiUser, FiGrid, FiUploadCloud, FiMenu, FiClock, FiPlusSquare } from 'react-icons/fi'; // Add FiClock, FiPlusSquare
 import styles from './Home.module.css';
 
 // --- Navbar Component Updated ---
-const Navbar = ({ handleLogout, toggleInfoSidebar }) => { // Add toggleInfoSidebar prop
+const Navbar = ({ handleLogout, toggleInfoSidebar, handleOpenEstimator }) => { // Add handleOpenEstimator
   const navigate = useNavigate();
 
   const handleExport = () => {
@@ -29,12 +29,12 @@ const Navbar = ({ handleLogout, toggleInfoSidebar }) => { // Add toggleInfoSideb
         <Link to="/" className={styles.navbarBrand}>
           Planner AI
         </Link>
-        {/* Removed Dashboard link from here as it might be redundant with sidebar/home */}
-        {/* <Link to="/dashboard" className={styles.navLink}>
-          <FiGrid className={styles.navIcon} /> Dashboard
-        </Link> */}
       </div>
       <div className={styles.navbarRight}>
+        {/* Add Study Time Estimator Button */}
+        <button onClick={handleOpenEstimator} className={styles.navButton} title="Study Time Estimator">
+          <FiClock className={styles.navIcon} /> Estimator
+        </button>
         <button onClick={handleExport} className={`${styles.navButton} ${styles.exportButton}`} title="Export to Google Calendar">
           <FiUploadCloud className={styles.navIcon} /> Export
         </button>
@@ -408,11 +408,29 @@ const Home = () => {
   const [flexibleObligations, setFlexibleObligations] = useState([]);
   const [academicTasks, setAcademicTasks] = useState([]);
   const [calendarDate, setCalendarDate] = useState(new Date());
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false); // Generic modal state
   const [modalContent, setModalContent] = useState(null);
   const [modalTitle, setModalTitle] = useState('');
-  const [registrationInProgress, setRegistrationInProgress] = useState({}); // Add state for registration status
+  const [registrationInProgress, setRegistrationInProgress] = useState({});
   const navigate = useNavigate();
+
+  // --- State for Add Academic Task Modal ---
+  const [showTaskModal, setShowTaskModal] = useState(false);
+  const [selectedTaskType, setSelectedTaskType] = useState("");
+  const [selectedCourse, setSelectedCourse] = useState("");
+  const [taskTitle, setTaskTitle] = useState("");
+  const [taskDeadline, setTaskDeadline] = useState("");
+  const [isAddingTask, setIsAddingTask] = useState(false);
+
+  // --- State for Study Time Estimator Modal ---
+  const [showEstimatorModal, setShowEstimatorModal] = useState(false);
+  // Add state for estimator form fields if needed, e.g.:
+  // const [materialType, setMaterialType] = useState('');
+  // const [pages, setPages] = useState('');
+  // const [difficulty, setDifficulty] = useState('medium');
+  const [isEstimating, setIsEstimating] = useState(false);
+  const [estimatedTime, setEstimatedTime] = useState(null);
+
 
   // --- Fetch Data (fetchHomeData remains the same) ---
   const fetchHomeData = async () => {
@@ -534,7 +552,7 @@ const Home = () => {
     setCalendarDate(newDate);
   };
 
-  // --- Modal Handling (Simplified - only for non-course/obligation items now) ---
+  // --- Generic Modal Handling ---
   const openModal = (title, content) => {
     setModalTitle(title);
     setModalContent(content);
@@ -585,25 +603,110 @@ const Home = () => {
     openModal(title, content);
   };
 
+  // --- Add Academic Task Logic ---
+  const openTaskModal = () => setShowTaskModal(true);
+  const closeTaskModal = () => {
+    setShowTaskModal(false);
+    // Reset form fields
+    setSelectedTaskType("");
+    setSelectedCourse("");
+    setTaskTitle("");
+    setTaskDeadline("");
+    setIsAddingTask(false);
+  };
+
+  const handleAddAcademicTask = async () => {
+    // Keep validation for frontend fields
+    if (!selectedTaskType || !selectedCourse || !taskTitle || !taskDeadline) {
+      alert("Please fill in all required fields.");
+      return;
+    }
+
+    setIsAddingTask(true);
+    try {
+      const token = localStorage.getItem("accessToken");
+      const response = await fetch("/api/tasks/academic-tasks", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        // Adjust the body to match the backend's AcademicTaskCreate model
+        body: JSON.stringify({
+          // task_type: selectedTaskType, // Remove: Backend derives this from task_name
+          course_id: parseInt(selectedCourse, 10), // Ensure course_id is an integer
+          task_name: taskTitle, // Change 'title' to 'task_name'
+          deadline: taskDeadline,
+          // status: "pending", // Remove: Backend sets default status
+          description: null, // Send null or an empty string if no description field exists, or add one
+          priority: 3 // Send default priority or add a field to set it
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        // Log the detailed error from the backend if available
+        console.error("Backend validation error:", errorData.detail);
+        throw new Error(errorData.detail || `Error ${response.status}`);
+      }
+
+      await fetchHomeData(); // Refresh data to show the new task
+      closeTaskModal();
+      alert("Academic task added successfully!");
+
+    } catch (err) {
+      console.error("Error adding academic task:", err);
+      alert(`Failed to add task: ${err.message}`);
+    } finally {
+      setIsAddingTask(false);
+    }
+  };
+
+  // --- Study Time Estimator Logic ---
+  const openEstimatorModal = () => setShowEstimatorModal(true);
+  const closeEstimatorModal = () => {
+      setShowEstimatorModal(false);
+      // Reset estimator state if needed
+      setIsEstimating(false);
+      setEstimatedTime(null);
+  };
+
+  const handleEstimateStudyTime = async () => {
+      // Placeholder: Replace with actual estimation logic/API call
+      setIsEstimating(true);
+      setEstimatedTime(null); // Clear previous estimate
+      console.log("Estimating study time...");
+      // Simulate API call
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      // Example result
+      setEstimatedTime("Approx. 2 hours 30 minutes");
+      setIsEstimating(false);
+      // Keep modal open to show result
+  };
+
 
   return (
     <div className={styles.homeLayout}>
-      {/* Pass toggleInfoSidebar to Navbar */}
-      <Navbar handleLogout={handleLogout} toggleInfoSidebar={toggleInfoSidebar} />
+      {/* Pass handleOpenEstimator to Navbar */}
+      <Navbar
+        handleLogout={handleLogout}
+        toggleInfoSidebar={toggleInfoSidebar}
+        handleOpenEstimator={openEstimatorModal}
+      />
       <div className={styles.mainContainer}>
-        {/* Info Sidebar (Left, Toggable) */}
+        {/* Info Sidebar */}
         <InfoSidebar
           isExpanded={isInfoSidebarExpanded}
-          // toggleSidebar={toggleInfoSidebar} // Remove this prop
           registeredCourses={registeredCourses}
           academicTasks={academicTasks}
           fixedObligations={fixedObligations}
           flexibleObligations={flexibleObligations}
           onDateChange={handleInfoCalendarDateChange}
           onItemClick={handleItemClick}
-          handleCourseUnregistration={handleCourseUnregistration} // Pass handler
-          registrationInProgress={registrationInProgress} // Pass status
-          setActiveSecondarySidebar={setActiveSecondarySidebar} // Pass function to open secondary sidebar
+          handleCourseUnregistration={handleCourseUnregistration}
+          registrationInProgress={registrationInProgress}
+          setActiveSecondarySidebar={setActiveSecondarySidebar}
+          handleOpenTaskModal={openTaskModal} // Pass function to open task modal
         />
 
         {/* Main content area */}
@@ -613,24 +716,148 @@ const Home = () => {
            </div>
          </div>
 
-        {/* Secondary Sidebar (Course Browser, Chat - Right) */}
+        {/* Secondary Sidebar */}
         <SecondarySidebar activePanel={activeSecondarySidebar} onClose={closeSecondarySidebar}>
           {activeSecondarySidebar === 'courses' && (
             <CourseBrowser
               registeredCourses={registeredCourses}
-              fetchUserData={fetchHomeData} // Pass fetchHomeData to refresh all data
+              fetchUserData={fetchHomeData}
             />
           )}
           {activeSecondarySidebar === 'chat' && <ChatInterface />}
         </SecondarySidebar>
 
-        {/* Icon Sidebar (Right) */}
+        {/* Icon Sidebar */}
         <IconSidebar onIconClick={handleIconClick} />
 
-        {/* Modal for Item Details (e.g., Academic Tasks) */}
+        {/* Generic Modal */}
         <Modal isOpen={isModalOpen} onClose={closeModal} title={modalTitle}>
           {modalContent}
         </Modal>
+
+        {/* Add Academic Task Modal */}
+        <Modal isOpen={showTaskModal} onClose={closeTaskModal} title="Add Academic Task">
+            {/* Replicate form structure from Dashboard.jsx modal */}
+            <div className={styles.modalBody}> {/* Use modalBody class */}
+              <div className={styles.formGroup}> {/* Use formGroup class */}
+                <label htmlFor="taskType">Task Type *</label>
+                <select
+                  id="taskType"
+                  value={selectedTaskType}
+                  onChange={(e) => setSelectedTaskType(e.target.value)}
+                  required
+                  className={styles.formInput} // Add formInput class
+                >
+                  <option value="">Select Task Type</option>
+                  <option value="Exam">Exam</option>
+                  <option value="Quiz">Quiz</option>
+                  <option value="Assignment">Assignment</option>
+                  <option value="Project">Project</option>
+                  <option value="Reading">Reading</option>
+                  <option value="Presentation">Presentation</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+
+              <div className={styles.formGroup}>
+                <label htmlFor="course">Course *</label>
+                <select
+                  id="course"
+                  value={selectedCourse}
+                  onChange={(e) => setSelectedCourse(e.target.value)}
+                  required
+                  className={styles.formInput}
+                >
+                  <option value="">Select Course</option>
+                  {registeredCourses.map((course) => (
+                    <option key={course.course_id} value={course.course_id}>
+                      {course.course_code} - {course.course_name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className={styles.formGroup}>
+                <label htmlFor="taskTitle">Title *</label>
+                <input
+                  type="text"
+                  id="taskTitle"
+                  value={taskTitle}
+                  onChange={(e) => setTaskTitle(e.target.value)}
+                  placeholder="e.g., Midterm Exam"
+                  required
+                  className={styles.formInput}
+                />
+              </div>
+
+              <div className={styles.formGroup}>
+                <label htmlFor="taskDeadline">Deadline *</label>
+                <input
+                  type="datetime-local"
+                  id="taskDeadline"
+                  value={taskDeadline}
+                  onChange={(e) => setTaskDeadline(e.target.value)}
+                  required
+                  className={styles.formInput}
+                />
+              </div>
+            </div>
+
+            <div className={styles.modalFooter}> {/* Use modalFooter class */}
+              <button
+                className={styles.cancelBtn} // Use cancelBtn class
+                onClick={closeTaskModal}
+              >
+                Cancel
+              </button>
+              <button
+                className={styles.addTaskBtn} // Use addTaskBtn class
+                onClick={handleAddAcademicTask}
+                disabled={isAddingTask}
+              >
+                {isAddingTask ? "Adding..." : "Add Task"}
+              </button>
+            </div>
+        </Modal>
+
+        {/* Study Time Estimator Modal */}
+        <Modal isOpen={showEstimatorModal} onClose={closeEstimatorModal} title="Study Time Estimator">
+            <div className={styles.modalBody}>
+                {/* Placeholder Content - Replace with actual form fields */}
+                <p>Enter details about the material to estimate study time.</p>
+                <div className={styles.formGroup}>
+                    <label htmlFor="material">Material Description</label>
+                    <input type="text" id="material" placeholder="e.g., Chapter 5 Reading" className={styles.formInput}/>
+                </div>
+                 <div className={styles.formGroup}>
+                    <label htmlFor="pages">Number of Pages/Items</label>
+                    <input type="number" id="pages" placeholder="e.g., 25" className={styles.formInput}/>
+                </div>
+                {/* Add more fields as needed */}
+
+                {isEstimating && (
+                    <div className={styles.loadingIndicator}> {/* Add styles for this */}
+                        <div className={styles.spinner}></div> Estimating...
+                    </div>
+                )}
+                {estimatedTime && (
+                    <div className={styles.estimationResult}> {/* Add styles for this */}
+                        <strong>Estimated Time:</strong> {estimatedTime}
+                    </div>
+                )}
+            </div>
+            <div className={styles.modalFooter}>
+                <button className={styles.cancelBtn} onClick={closeEstimatorModal}>Close</button>
+                <button
+                    className={styles.addTaskBtn} // Reuse style or create a new one
+                    onClick={handleEstimateStudyTime}
+                    disabled={isEstimating}
+                >
+                    {isEstimating ? "Estimating..." : "Estimate"}
+                </button>
+            </div>
+        </Modal>
+
       </div>
     </div>
   );

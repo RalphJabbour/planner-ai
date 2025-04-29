@@ -12,4 +12,6 @@ dependencies = [
     "uvicorn>=0.24.0",
     "fastapi>=0.109.0",
     "fastmcp-http",
+    "python-jose>=3.3.0",
+    "passlib>=1.7.4",      
 ]

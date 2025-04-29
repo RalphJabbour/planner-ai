@@ -738,7 +738,6 @@ const Home = () => {
 
         {/* Add Academic Task Modal */}
         <Modal isOpen={showTaskModal} onClose={closeTaskModal} title="Add Academic Task">
-            {/* Replicate form structure from Dashboard.jsx modal */}
             <div className={styles.modalBody}> {/* Use modalBody class */}
               <div className={styles.formGroup}> {/* Use formGroup class */}
                 <label htmlFor="taskType">Task Type *</label>

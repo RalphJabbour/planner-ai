@@ -14,17 +14,27 @@ services:
       - ./backend/.env
     depends_on:
       - db
+  
 
-    # mcp-server:
-  #   build: 
-  #     context: ./backend
-  #     dockerfile: mcp.Dockerfile
-  #   ports:
-  #     - "8001:8001"
-  #   env_file:
-  #     - ./backend/.env
-  #   depends_on:
-  #     - db
+  
+  mcp-server:
+    build: ./mcp_server
+    ports:
+      - "3001:3001"
+    env_file:
+      - .env
+    depends_on:
+      - backend
+      - db
+
+  mcp-client:
+    build: ./mcp_client
+    depends_on:
+      - mcp-server
+    ports:
+      - "3002:3002"
+    environment:
+      - MCP_SERVER_URL=http://mcp-server:3001
   
   course-sync:
     build: ./course-sync

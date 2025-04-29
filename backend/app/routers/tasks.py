@@ -5,7 +5,7 @@ from pydantic import BaseModel
 from datetime import time, date  # Add 'date' to your imports
 from app.database import get_db
 from app.models.student import Student
-from app.models.schedule import FixedObligation, FlexibleObligation, CalendarEvent
+from app.models.schedule import FixedObligation, FlexibleObligation, CalendarEvent # Ensure these are imported
 from app.auth.token import get_current_student
 from datetime import datetime, timedelta
 from app.models.academic import AcademicTask
@@ -795,37 +795,72 @@ async def get_calendar_events(
     end_date: Optional[datetime] = None,
     db: Session = Depends(get_db)
 ):
-    """Get all calendar events for the current student between start date and end date"""
+    """
+    Get all calendar events for the current student between start date and end date.
+    Includes the name of the associated fixed or flexible obligation if applicable.
+    """
     if start_date is None:
-        start_date = datetime.now()
+        # Default to the beginning of the current day
+        start_date = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
     if end_date is None:
-        end_date = start_date + timedelta(days=7)
-    
+        # Default to 7 days from the start date (end of the 7th day)
+        end_date = start_date + timedelta(days=7) - timedelta(microseconds=1)
+
     print(f"Retrieving calendar events from {start_date} to {end_date}")
-    
+
     # Ensure start_date is before end_date
     if start_date >= end_date:
         raise HTTPException(status_code=400, detail="Start date must be before end date")
-    
-    # Fetch calendar events for the current student
-    # Note: Using >= for start_time and <= for end_time to ensure we get events
-    # that start within our window or end within our window
+
+    # Fetch calendar events for the current student within the date range
+    # Query events that overlap with the requested time window
     events = db.query(CalendarEvent).filter(
         CalendarEvent.student_id == current_student.student_id,
-        CalendarEvent.start_time >= start_date,
-        CalendarEvent.end_time <= end_date
+        CalendarEvent.start_time < end_date,  # Event starts before the window ends
+        CalendarEvent.end_time > start_date   # Event ends after the window starts
     ).order_by(CalendarEvent.start_time).all()
-    
-    # Log how many events we found of each type
-    event_types = {}
+
+    events_with_names = []
+    event_types_count = {} # Renamed from event_types to avoid conflict
+
     for event in events:
-        if event.event_type not in event_types:
-            event_types[event.event_type] = 0
-        event_types[event.event_type] += 1
-    
-    print(f"Found {len(events)} calendar events: {event_types}")
-    
-    return events
+        obligation_name = None
+        obligation_type = None # To store 'fixed' or 'flexible'
+
+        # Check for fixed obligation
+        if event.fixed_obligation_id:
+            fixed_obligation = db.query(FixedObligation).filter(
+                FixedObligation.obligation_id == event.fixed_obligation_id
+            ).first()
+            if fixed_obligation:
+                obligation_name = fixed_obligation.name
+                obligation_type = "fixed"
+
+        # Check for flexible obligation if fixed not found or not applicable
+        elif event.flexible_obligation_id:
+            flexible_obligation = db.query(FlexibleObligation).filter(
+                FlexibleObligation.obligation_id == event.flexible_obligation_id
+            ).first()
+            if flexible_obligation:
+                # Use name if available, otherwise fallback to description
+                obligation_name = flexible_obligation.name or flexible_obligation.description
+                obligation_type = "flexible"
+
+        # Convert event to dict and add obligation name and type
+        event_dict = {c.name: getattr(event, c.name) for c in event.__table__.columns}
+        event_dict["name"] = obligation_name
+        event_dict["obligation_type"] = obligation_type # Add the type ('fixed' or 'flexible')
+        events_with_names.append(event_dict)
+
+        # Log event types count
+        event_type_key = event.event_type
+        if event_type_key not in event_types_count:
+            event_types_count[event_type_key] = 0
+        event_types_count[event_type_key] += 1
+
+    print(f"Found {len(events)} calendar events: {event_types_count}")
+
+    return events_with_names
 
 @router.get("/calendar-events/{event_id}", operation_id="get_calendar_event")
 async def get_calendar_event(

@@ -616,51 +616,52 @@ const Home = () => {
   };
 
   const handleAddAcademicTask = async () => {
-    // Keep validation for frontend fields
-    if (!selectedTaskType || !selectedCourse || !taskTitle || !taskDeadline) {
-      alert("Please fill in all required fields.");
-      return;
+  // Keep validation for frontend fields
+  if (!selectedTaskType || !selectedCourse || !taskTitle || !taskDeadline) {
+    alert("Please fill in all required fields.");
+    return;
+  }
+
+  setIsAddingTask(true);
+  try {
+    const token = localStorage.getItem("accessToken");
+    const response = await fetch("/api/tasks/academic-tasks", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        course_id: parseInt(selectedCourse, 10),
+        task_name: taskTitle,
+        deadline: taskDeadline,
+        description: null,
+        priority: 3
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error("Backend validation error:", errorData.detail);
+      throw new Error(errorData.detail || `Error ${response.status}`);
     }
 
-    setIsAddingTask(true);
-    try {
-      const token = localStorage.getItem("accessToken");
-      const response = await fetch("/api/tasks/academic-tasks", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        // Adjust the body to match the backend's AcademicTaskCreate model
-        body: JSON.stringify({
-          // task_type: selectedTaskType, // Remove: Backend derives this from task_name
-          course_id: parseInt(selectedCourse, 10), // Ensure course_id is an integer
-          task_name: taskTitle, // Change 'title' to 'task_name'
-          deadline: taskDeadline,
-          // status: "pending", // Remove: Backend sets default status
-          description: null, // Send null or an empty string if no description field exists, or add one
-          priority: 3 // Send default priority or add a field to set it
-        }),
-      });
+    await fetchHomeData(); // Refresh data to show the new task
+    closeTaskModal();
+    alert("Academic task added successfully!");
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        // Log the detailed error from the backend if available
-        console.error("Backend validation error:", errorData.detail);
-        throw new Error(errorData.detail || `Error ${response.status}`);
-      }
-
-      await fetchHomeData(); // Refresh data to show the new task
-      closeTaskModal();
-      alert("Academic task added successfully!");
-
-    } catch (err) {
-      console.error("Error adding academic task:", err);
-      alert(`Failed to add task: ${err.message}`);
-    } finally {
-      setIsAddingTask(false);
+    // If the task type is Exam, redirect to the estimator
+    if (selectedTaskType === "Exam") {
+      navigate("/study-time-estimator");
     }
-  };
+
+  } catch (err) {
+    console.error("Error adding academic task:", err);
+    alert(`Failed to add task: ${err.message}`);
+  } finally {
+    setIsAddingTask(false);
+  }
+};
 
   // --- Study Time Estimator Logic ---
   const openEstimatorModal = () => setShowEstimatorModal(true);

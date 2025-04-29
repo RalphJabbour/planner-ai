@@ -3,7 +3,6 @@ import Calendar from 'react-calendar';
 import 'react-calendar/dist/Calendar.css';
 import styles from './InfoSidebar.module.css';
 import { useNavigate } from 'react-router-dom';
-import { FiPlusSquare } from 'react-icons/fi'; // Import icon if needed, or use text
 
 const formatDateSimple = (date) => {
   if (!date) return "";
@@ -21,16 +20,15 @@ const InfoSidebar = ({
   flexibleObligations = [],
   onDateChange,
   isExpanded,
-  // toggleSidebar, // Removed as toggle is in Navbar now
-  onItemClick,
+  onItemClick, // Keep for potential detail view modal
   handleCourseUnregistration,
   registrationInProgress = {},
   setActiveSecondarySidebar,
-  handleOpenTaskModal, // <-- New prop to open the task modal
+  handleOpenTaskModal,
 }) => {
   const [expandedSections, setExpandedSections] = useState({
     courses: true,
-    academicTasks: false, // Keep this collapsible
+    academicTasks: true, // Default to expanded
     fixedTasks: true,
     flexibleTasks: true,
   });
@@ -176,20 +174,18 @@ const InfoSidebar = ({
 
            {/* Academic Tasks */}
            <div className={styles.section}>
-             {/* Updated Header with Add Button */}
              <div className={styles.sectionHeader}>
                 <button
-                  className={styles.collapsibleHeaderButton} // Style as a button-like header
+                  className={styles.collapsibleHeaderButton}
                   onClick={() => toggleSection('academicTasks')}
                   aria-expanded={expandedSections.academicTasks}
                 >
                   Academic Tasks
                   <span className={styles.toggleIcon}>{expandedSections.academicTasks ? '−' : '+'}</span>
                 </button>
-                {/* Add Button for Academic Tasks */}
                 <button
                   className={styles.addBtn}
-                  onClick={handleOpenTaskModal} // Use the passed function
+                  onClick={handleOpenTaskModal}
                   title="Add Academic Task"
                 >
                   + Add
@@ -198,20 +194,34 @@ const InfoSidebar = ({
              {expandedSections.academicTasks && (
                <div className={styles.sectionContent}>
                  {academicTasks.length === 0 ? (
-                   <p className={styles.emptyState}>No upcoming academic tasks.</p>
-                   // Optionally add a button here too if the section is empty
-                   // <button onClick={handleOpenTaskModal}>Add Task</button>
+                   <div className={styles.emptyState}> {/* Use emptyState div */}
+                     <p>No upcoming academic tasks.</p>
+                     <button onClick={handleOpenTaskModal}>Add Task</button> {/* Optional: Add button in empty state */}
+                   </div>
                  ) : (
-                   <ul className={styles.list}>
+                   <div className={styles.obligationsList}> {/* Reuse obligationsList for consistent styling */}
                      {academicTasks.map(task => (
-                       <li key={task.task_id} className={styles.listItem} onClick={() => onItemClick('academic', task)}>
-                         <span className={styles.taskTitle}>{task.title}</span>
-                         <span className={styles.taskDeadline}>
-                           Due: {formatDateSimple(task.deadline)}
-                         </span>
-                       </li>
+                       <div className={styles.obligationItem} key={task.task_id}> {/* Reuse obligationItem */}
+                         <div className={styles.obligationInfo} onClick={() => onItemClick('academic', task)} style={{cursor: 'pointer'}}> {/* Make info clickable for details */}
+                           <div className={styles.obligationTitleSmall}>{task.title}</div> {/* Reuse title style */}
+                           <div className={styles.obligationDetailsSmall}> {/* Reuse details style */}
+                             {/* Find course code - requires registeredCourses to be available or task data to include it */}
+                             {/* <span>{registeredCourses.find(c => c.course_id === task.course_id)?.course_code || 'Course'}</span> */}
+                             <span>Due: {formatDateSimple(task.deadline)}</span>
+                           </div>
+                         </div>
+                         <div className={styles.obligationActions}> {/* Reuse actions style */}
+                           <button
+                             // Navigate to a dedicated edit page (assuming it exists)
+                             onClick={() => navigate(`/tasks/academic/edit/${task.task_id}`)}
+                             className={styles.editBtnSmall} // Reuse edit button style
+                           >
+                             Edit
+                           </button>
+                         </div>
+                       </div>
                      ))}
-                   </ul>
+                   </div>
                  )}
                </div>
              )}

@@ -1,5 +1,9 @@
 # Planner AI
 
+https://github.com/user-attachments/assets/7227e21d-2dd8-472d-b9cd-cca6fa904f15
+
+
+
 Planner AI is a comprehensive academic planning and course management system designed to help students organize their educational journey. The application features course synchronization, behavior analysis, interactive quizzes, and personalized planning tools.
 
 ## 🚀 Features

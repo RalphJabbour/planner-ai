@@ -693,7 +693,7 @@ const Home = () => {
 
     // If the task type is Exam, redirect to the estimator
     if (selectedTaskType === "Exam") {
-      navigate("/study-time-estimator");
+      navigate("/materials-quiz");
     }
 
   } catch (err) {

@@ -33,8 +33,8 @@ function LoginPage() {
       // Store the access token
       localStorage.setItem("accessToken", data.access_token);
 
-      // Redirect to dashboard
-      navigate("/dashboard");
+      // Redirect to home page
+      navigate("/home");
     } catch (err) {
       setError(err.message || "Invalid credentials. Please try again.");
     } finally {

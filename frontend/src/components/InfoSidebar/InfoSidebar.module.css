@@ -1,0 +1,332 @@
+.infoSidebar {
+  width: 280px; /* Expanded width */
+  background-color: #ffffff;
+  border-right: 1px solid #e5e7eb; /* Border on the right now */
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  overflow: hidden;
+  z-index: 15;
+  position: relative; /* Needed for absolute positioning of toggle button */
+  transition: width 0.3s ease-in-out; /* Animate width change */
+}
+
+/* Collapsed State */
+.infoSidebarCollapsed {
+  width: 0; /* Collapse width */
+  border-right: none; /* Hide border when collapsed */
+  overflow: hidden;
+}
+
+/* Sidebar Content Wrapper */
+.sidebarContent {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden; /* Prevent content overflow when collapsing */
+}
+
+
+/* Calendar Section */
+.monthCalendarSection {
+  padding: 0.75rem;
+  border-bottom: 1px solid #e5e7eb;
+  flex-shrink: 0; /* Prevent calendar from shrinking */
+}
+
+.monthCalendar {
+  width: 100% !important; /* Force width */
+  border: none !important; /* Remove default border */
+  font-family: inherit !important; /* Use app font */
+}
+
+.monthCalendar .react-calendar__tile {
+  padding: 0.5em 0.2em !important; /* Adjust tile padding */
+  font-size: 0.8rem;
+}
+
+.monthCalendar .react-calendar__tile--now {
+  background: #eef2ff !important; /* Light indigo for today */
+  color: #4338ca;
+}
+
+.monthCalendar .react-calendar__tile--active {
+  background: #4f46e5 !important; /* Indigo for selected */
+  color: white !important;
+}
+
+.monthCalendar .react-calendar__navigation button {
+  min-width: 30px !important; /* Adjust nav button size */
+  font-size: 0.9rem;
+}
+
+
+/* Sections Container - Allows scrolling below calendar */
+.sectionsContainer {
+  flex-grow: 1;
+  /* Remove overflow-y: auto; from here */
+  /* overflow-y: auto; */
+  padding: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem; /* Space between sections */
+  /* Add overflow hidden if sections themselves shouldn't scroll */
+  overflow: hidden;
+}
+
+/* General Section Styling */
+.section {
+  background-color: #f9fafb; /* Light background for sections */
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  overflow: hidden; /* Ensure content stays within rounded corners */
+  /* Allow sections to shrink if needed, but prioritize content scrolling */
+  display: flex;
+  flex-direction: column;
+}
+
+.sectionHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.6rem 0.8rem;
+  border-bottom: 1px solid #e5e7eb;
+  background-color: #f3f4f6; /* Slightly darker header */
+  flex-shrink: 0; /* Prevent header from shrinking */
+}
+
+.sectionHeader h3 {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #374151;
+}
+
+.addBtn {
+  padding: 0.2rem 0.6rem;
+  background-color: #3b82f6; /* Blue */
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 500;
+  transition: background-color 0.2s;
+}
+.addBtn:hover {
+  background-color: #2563eb;
+}
+
+.sectionContent {
+  padding: 0.8rem;
+  /* Add max-height and overflow-y */
+  max-height: 200px; /* Adjust this value as needed */
+  overflow-y: auto;
+  /* Add some padding for the scrollbar */
+  padding-right: 12px; /* Adjust if scrollbar overlaps content */
+}
+
+.emptyState {
+  font-size: 0.85rem;
+  color: #6b7280;
+  text-align: center;
+  padding: 0.5rem 0;
+}
+.emptyState button {
+  margin-top: 0.5rem;
+  padding: 0.3rem 0.8rem;
+  font-size: 0.8rem;
+  background-color: #3b82f6;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+/* Course List Specific Styles */
+.coursesList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.courseCard {
+  background: #ffffff;
+  border: 1px solid #e0e0e0;
+  border-left: 3px solid #4f46e5; /* Indigo accent */
+  border-radius: 4px;
+  padding: 0.5rem 0.75rem;
+  display: grid; /* Use grid for better alignment */
+  grid-template-columns: auto 1fr auto; /* Code, Name/Inst, Button */
+  grid-template-rows: auto auto;
+  gap: 0.1rem 0.5rem; /* Row gap, Column gap */
+  align-items: center;
+}
+
+.courseCode {
+  grid-column: 1 / 2;
+  grid-row: 1 / 3; /* Span both rows */
+  font-weight: 600;
+  color: #4f46e5;
+  font-size: 0.85rem;
+  align-self: center; /* Center vertically */
+  padding-right: 0.5rem;
+  border-right: 1px solid #eee;
+}
+
+.courseNameSmall {
+  grid-column: 2 / 3;
+  grid-row: 1 / 2;
+  font-size: 0.85rem;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.instructorSmall {
+  grid-column: 2 / 3;
+  grid-row: 2 / 3;
+  font-size: 0.75rem;
+  color: #6b7280;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.unregisterBtnSmall {
+  grid-column: 3 / 4;
+  grid-row: 1 / 3; /* Span both rows */
+  padding: 0.2rem 0.5rem;
+  background-color: #fee2e2; /* Light red */
+  color: #dc2626; /* Red */
+  border: 1px solid #fecaca;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.7rem;
+  font-weight: 500;
+  transition: all 0.2s;
+  justify-self: end; /* Align button to the right */
+}
+.unregisterBtnSmall:hover:not(:disabled) {
+  background-color: #fecaca;
+  border-color: #fca5a5;
+}
+.unregisterBtnSmall:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Obligations List Specific Styles */
+.obligationsList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.obligationItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 0.75rem;
+  background: #ffffff;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+}
+
+.obligationInfo {
+  flex-grow: 1;
+  margin-right: 0.5rem;
+  overflow: hidden; /* Prevent long text overflow */
+}
+
+.obligationTitleSmall {
+  font-weight: 500;
+  font-size: 0.85rem;
+  margin-bottom: 0.1rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.obligationDetailsSmall {
+  font-size: 0.75rem;
+  color: #6b7280;
+  display: flex;
+  gap: 0.5rem;
+  white-space: nowrap;
+}
+
+.obligationActions {
+  flex-shrink: 0; /* Prevent actions from shrinking */
+}
+
+.editBtnSmall {
+  padding: 0.2rem 0.5rem;
+  background-color: #f3f4f6; /* Light gray */
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  color: #4b5563;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+.editBtnSmall:hover {
+  background-color: #e5e7eb;
+}
+
+/* Academic Tasks (Collapsible) */
+.collapsibleHeader {
+  /* Style similar to sectionHeader but indicates collapsibility */
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  padding: 0.6rem 0.8rem;
+  background-color: #f3f4f6;
+  border: none; /* No border within the section */
+  border-bottom: 1px solid #e5e7eb;
+  cursor: pointer;
+  text-align: left;
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: #374151;
+}
+.collapsibleHeader[aria-expanded="false"] {
+  border-bottom: none; /* Remove border when collapsed */
+}
+.toggleIcon {
+  font-size: 1.1rem;
+  color: #6b7280;
+}
+
+/* Keep original list styles for academic tasks */
+.list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.listItem {
+  display: flex;
+  flex-direction: column;
+  font-size: 0.85rem;
+  padding: 0.4rem 0.6rem;
+  border-bottom: 1px dashed #e5e7eb;
+  border-radius: 4px;
+  transition: background-color 0.2s ease;
+}
+.listItem:last-child { border-bottom: none; }
+.listItem:hover { background-color: #eef2ff; cursor: pointer; }
+.taskTitle { font-weight: 500; color: #374151; margin-bottom: 0.1rem; }
+.taskDeadline { font-size: 0.75rem; color: #6b7280; }
+
+/* --- (keep clickableItem styles if needed for academic tasks) --- */
+.clickableItem {
+  cursor: pointer;
+}
+.clickableItem:hover {
+  background-color: #eef2ff; /* Light indigo background on hover */
+}

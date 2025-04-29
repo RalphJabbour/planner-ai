@@ -247,8 +247,8 @@ const StudyTimeEstimator = () => {
     <div className="materials-quiz-container">
       <div className="materials-quiz-header">
         <h1>Study Time Estimator</h1>
-        <button className="back-btn" onClick={() => navigate("/dashboard")}>
-          Back to Dashboard
+        <button className="back-btn" onClick={() => navigate("/home")}>
+          Back to Home
         </button>
       </div>
       

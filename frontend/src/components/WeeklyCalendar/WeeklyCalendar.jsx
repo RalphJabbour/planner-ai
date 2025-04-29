@@ -25,7 +25,7 @@ const priorityOpacity = {
   5: 1.0
 };
 
-const WeeklyCalendar = () => {
+const WeeklyCalendar = ({ style }) => {
   const [calendarEvents, setCalendarEvents] = useState([]);
   const [academicTasks, setAcademicTasks] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -142,6 +142,7 @@ const WeeklyCalendar = () => {
   const handleRefresh = () => {
     fetchCalendarEvents();
     fetchAcademicTasks();
+    console.log(calendarEvents);
   };
 
   // Prepare events for display
@@ -154,7 +155,7 @@ const WeeklyCalendar = () => {
       id: event.event_id,
       type: event.event_type,
       title: event.event_type === 'fixed_obligation' ? 'Fixed: ' + event.name :
-             event.event_type === 'flexible_obligation' ? 'Flexible: ' + event.description :
+             event.event_type === 'flexible_obligation' ? 'Flexible: ' + event.name :
              event.event_type === 'study_session' ? 'Study: ' + event.description :
              'Class',
       day: getDay(eventDate), // 0 = Sunday, 6 = Saturday
@@ -219,19 +220,10 @@ const WeeklyCalendar = () => {
   }
 
   return (
-    <div className={styles.calendar}>
+    <div className={styles.calendar} style={style}>
       {/* Calendar Controls */}
       <div className={styles.header}>
         <div className={styles.headerLeft || "flex items-center"}>
-          <Link 
-            to="/dashboard" 
-            className={styles.linkButton || "mr-4 text-blue-600 font-medium hover:text-blue-800 flex items-center"}
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M9.707 14.707a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 1.414L7.414 9H15a1 1 0 110 2H7.414l2.293 2.293a1 1 0 010 1.414z" clipRule="evenodd" />
-            </svg>
-            Dashboard
-          </Link>
           <button 
             onClick={navigatePreviousWeek}
             className={styles.button}

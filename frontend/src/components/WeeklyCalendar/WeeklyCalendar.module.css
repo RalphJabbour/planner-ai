@@ -3,6 +3,9 @@
   border-radius: 0.5rem;
   box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
 }
 
 .header {
@@ -12,6 +15,7 @@
   padding: 1rem;
   border-bottom: 1px solid #e5e7eb;
   background: linear-gradient(to right, #eff6ff, #eef2ff);
+  flex-shrink: 0;
 }
 
 .button {
@@ -33,6 +37,9 @@
 .calendarGrid {
   display: grid;
   grid-template-columns: auto repeat(7, 1fr);
+  overflow-y: auto;
+  max-height: calc(100% - 120px);
+  min-height: 0;
 }
 
 .gridHeader {
@@ -42,6 +49,9 @@
   border-right: 1px solid #e5e7eb;
   background-color: #f9fafb;
   font-weight: 500;
+  position: sticky;
+  top: 0;
+  z-index: 2;
 }
 
 .todayHeader {
@@ -66,6 +76,7 @@
 .dayColumn {
   position: relative;
   border-right: 1px solid #e5e7eb;
+  min-height: 1440px;;
 }
 
 .hourCell {
@@ -93,6 +104,7 @@
   padding: 0.75rem;
   border-top: 1px solid #e5e7eb;
   background-color: #f9fafb;
+  flex-shrink: 0;
 }
 
 .legendItem {
@@ -103,7 +115,6 @@
 .legendColor {
   width: 0.75rem;
   height: 0.75rem;
-  margin-right: 0.25rem;
   border-radius: 9999px;
 }
 

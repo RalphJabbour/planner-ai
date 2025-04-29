@@ -1,6 +1,10 @@
 # Planner AI
 
-Planner AI is a comprehensive academic planning and course management system designed to help students organize their educational journey. The application features course synchronization, behavior analysis, interactive quizzes, and personalized planning tools, including an AI chat assistant.
+https://github.com/user-attachments/assets/7227e21d-2dd8-472d-b9cd-cca6fa904f15
+
+
+
+Planner AI is a comprehensive academic planning and course management system designed to help students organize their educational journey. The application features course synchronization, behavior analysis, interactive quizzes, and personalized planning tools.
 
 ## 🚀 Features
 
@@ -49,7 +53,7 @@ The application is built using a microservices architecture with Docker, allowin
 
 1.  Clone the repository:
     ```bash
-    git clone https://github.com/yourusername/planner-ai.git # Replace with your repo URL
+    git clone https://github.com/yourusername/planner-ai.git
     cd planner-ai
     ```
 
@@ -89,7 +93,6 @@ The application is built using a microservices architecture with Docker, allowin
 
     **Example `mcp_client/.env`:**
     ```properties
-    # filepath: /Users/ralphjabbour/Desktop/AUB/EECE503N/planner-ai/mcp_client/.env
     AZURE_OPENAI_DEPLOYMENT=gpt-4o-mini
     AZURE_OPENAI_KEY=<Your Azure OpenAI Key>
     AZURE_OPENAI_ENDPOINT=<Your Azure OpenAI Endpoint>

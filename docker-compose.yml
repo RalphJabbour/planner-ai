@@ -24,6 +24,13 @@ services:
     depends_on:
       - backend
       - db
+
+  mcp-client:
+    build: ./mcp_client
+    depends_on:
+      - mcp-server
+    environment:
+      - MCP_SERVER_URL=http://mcp-server:3001
   
   course-sync:
     build: ./course-sync

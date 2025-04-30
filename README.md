@@ -53,7 +53,7 @@ The application is built using a microservices architecture with Docker, allowin
 
 1.  Clone the repository:
     ```bash
-    git clone https://github.com/yourusername/planner-ai.git
+    git clone https://github.com/RalphJabbour/planner-ai.git
     cd planner-ai
     ```
 
